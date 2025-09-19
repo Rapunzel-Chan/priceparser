@@ -1,0 +1,27 @@
+<form method="post" id="product-form">
+  {% csrf_token %}
+  <label>Категория:</label>
+  <select name="category_id">
+    {% for category in categories %}
+      <option value="{{ category.id }}">{{ category.name }}</option>
+    {% endfor %}
+  </select>
+
+  <div id="product-fields">
+    <input type="text" name="product_names[]" placeholder="Название товара">
+  </div>
+
+  <button type="button" onclick="addField()">Добавить ещё</button>
+  <button type="submit">Сохранить товары</button>
+</form>
+
+<script>
+function addField() {
+  const container = document.getElementById('product-fields');
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.name = 'product_names[]';
+  input.placeholder = 'Название товара';
+  container.appendChild(input);
+}
+</script>

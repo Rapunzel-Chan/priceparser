@@ -1,0 +1,51 @@
+<% load static %>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <title>Результаты</title>
+  <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet" />
+</head>
+<body class="bg-light p-4">
+  <div class="container">
+    <h2 class="mb-4">Средние цены</h2>
+
+    <table class="table table-striped table-bordered">
+      <thead class="table-light">
+        <tr>
+          <th>№</th>
+          <th>Наименование</th>
+          <th>Ед. изм.</th>
+          <th>Цена за ед. изм. (с доставкой)</th>
+          <th>Пересчет. цена</th>
+          <th>Входная цена</th>
+          <th>Кол-во в упаковке</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in results %}
+        <tr>
+          <td>{{ item.pp }}</td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.unit }}</td>
+          <td>{{ item.price_per_unit }}</td>
+          <td>{{ item.price_per_unit }}</td>
+          <td>{{ item.avg_price_pack }}</td>
+          <td>{{ item.pack_size }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <form method="post" action="{% url 'catalog:export_excel' %}">
+      {% csrf_token %}
+      {% for item in results %}
+        {% if item.id %}
+          <input type="hidden" name="ids[]" value="{{ item.id }}">
+        {% endif %}
+      {% endfor %}
+      <button type="submit" class="btn btn-success">Скачать в Excel</button>
+    </form>
+  </div>
+</body>
+</html>
