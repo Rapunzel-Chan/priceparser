@@ -10,7 +10,7 @@
   <div class="container">
     <h2 class="mb-4">Выберите товары</h2>
 
-    <form method="post" action="{% url 'catalog:show_selected_products' %}">
+    <form method="post" action="{% url 'price_parser:show_selected_products' %}">
       {% csrf_token %}
       <input type="hidden" name="category_id" value="{{ selected_category_id }}">
 

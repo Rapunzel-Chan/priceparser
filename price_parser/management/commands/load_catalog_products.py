@@ -1,11 +1,11 @@
 from django.core.management.base import BaseCommand
-from catalog.services.parser_exl import ProductParser
-from catalog.models import Category, Product
+from price_parser.services.parser_exl import ProductParser
+from price_parser.models import Category, Product
 from django.core.management.base import BaseCommand
 
 import pandas as pd
 from django.core.management.base import BaseCommand
-from catalog.models import Category, Product
+from price_parser.models import Category, Product
 
 
 class Command(BaseCommand):

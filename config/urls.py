@@ -25,7 +25,7 @@ urlpatterns = [
 
     path("admin/", admin.site.urls),
     # path("", include("estimates.urls", namespace="estimates")),
-    path("catalog/", include("catalog.urls", namespace="catalog")),
+    path("", include("price_parser.urls", namespace="price_parser")),
     # path("leroy/", include("leroy_db_parser.urls", namespace="leroy_db_parser")),
 
     # path("blog/", include("blog.urls", namespace="blog")),

@@ -1,5 +1,3 @@
-# catalog/utils/price_utils.py
-
 import re
 from decimal import Decimal, InvalidOperation
 from typing import Iterable, List, Optional
@@ -59,3 +57,26 @@ def filtered_unique_mean(prices: Iterable, trim_pct: float = 0.30) -> Optional[D
 
     avg = sum(filtered) / Decimal(len(filtered))
     return avg.quantize(Decimal('0.01'))
+
+
+def extract_unit_and_pack(name: str) -> tuple[Optional[str], Decimal]:
+    """
+    Извлекаем единицу измерения и фасовку из названия.
+    Пример: 'Шпаклевка 20 кг' → ('кг', 20)
+    """
+    match = re.search(r'(\d+[.,]?\d*)\s*(кг|шт|л|м2|м³|г)', name.lower())
+    if match:
+        pack_size = Decimal(str(match.group(1)).replace(',', '.'))
+        unit = match.group(2)
+        return unit, pack_size
+    return None, Decimal(1)
+
+
+def clean_product_name(name: str) -> str:
+    """
+    Очищаем название от брендов и кодов.
+    """
+    brands = ["церезит", "ce", "vetonit", "lr"]
+    words = name.split()
+    cleaned = [w for w in words if w.lower() not in brands]
+    return " ".join(cleaned)

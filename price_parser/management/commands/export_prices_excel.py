@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from catalog.models import ParsedProduct
+from price_parser.models import ParsedProduct
 import openpyxl
 from openpyxl.utils import get_column_letter
 

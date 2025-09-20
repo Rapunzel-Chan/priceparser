@@ -1,6 +1,6 @@
-# catalog/management/commands/load_shortlist.py
+
 from django.core.management.base import BaseCommand
-from catalog.models import Product, Category
+from price_parser.models import Product, Category
 import csv
 import os
 

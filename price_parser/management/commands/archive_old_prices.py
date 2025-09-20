@@ -1,5 +1,5 @@
 from django.core.management.base import BaseCommand
-from catalog.models import ParsedProduct, ParsedProductArchive
+from price_parser.models import ParsedProduct, ParsedProductArchive
 from django.utils.timezone import now
 from datetime import timedelta
 

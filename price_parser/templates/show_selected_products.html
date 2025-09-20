@@ -1,51 +1,116 @@
-<% load static %>
+{% load static %}
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-  <meta charset="UTF-8" />
-  <title>Результаты</title>
-  <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet" />
+  <meta charset="UTF-8">
+  <title>Выбор и парсинг товаров</title>
+  <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+  <script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
+  <style>
+    #products-table th, #products-table td { vertical-align: middle; }
+  </style>
 </head>
 <body class="bg-light p-4">
-  <div class="container">
-    <h2 class="mb-4">Средние цены</h2>
+<div class="container">
+  <h2>Выбор и парсинг товаров</h2>
 
-    <table class="table table-striped table-bordered">
-      <thead class="table-light">
-        <tr>
-          <th>№</th>
-          <th>Наименование</th>
-          <th>Ед. изм.</th>
-          <th>Цена за ед. изм. (с доставкой)</th>
-          <th>Пересчет. цена</th>
-          <th>Входная цена</th>
-          <th>Кол-во в упаковке</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in results %}
-        <tr>
-          <td>{{ item.pp }}</td>
-          <td>{{ item.name }}</td>
-          <td>{{ item.unit }}</td>
-          <td>{{ item.price_per_unit }}</td>
-          <td>{{ item.price_per_unit }}</td>
-          <td>{{ item.avg_price_pack }}</td>
-          <td>{{ item.pack_size }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <!-- Фильтр -->
+  <form method="get" class="row g-3 mb-3">
+    <div class="col-md-6">
+      <input type="text" name="q" value="{{ search_query }}" placeholder="Поиск..." class="form-control">
+    </div>
+    <div class="col-md-2 form-check">
+      <input type="checkbox" class="form-check-input" name="shortlist" value="1" id="shortlistCheck" {% if shortlist %}checked{% endif %}>
+      <label class="form-check-label" for="shortlistCheck">Только шортлист</label>
+    </div>
+    <div class="col-md-2">
+      <button type="submit" class="btn btn-primary">Фильтровать</button>
+    </div>
+  </form>
 
-    <form method="post" action="{% url 'catalog:export_excel' %}">
-      {% csrf_token %}
-      {% for item in results %}
-        {% if item.id %}
-          <input type="hidden" name="ids[]" value="{{ item.id }}">
-        {% endif %}
+  <!-- Таблица товаров -->
+  <table class="table table-bordered table-striped" id="products-table">
+    <thead class="table-light">
+      <tr>
+        <th><input type="checkbox" id="select-all"></th>
+        <th>Наименование</th>
+        <th>Ед. изм.</th>
+        <th>Фасовка</th>
+        <th>Средняя цена</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for product in products %}
+      <tr>
+        <td><input type="checkbox" class="product-checkbox" value="{{ product.id }}"></td>
+        <td>{{ product.name }}</td>
+        <td>{{ product.unit|default:"шт." }}</td>
+        <td>{{ product.pack_size|default:"1" }}</td>
+        <td>{{ product.avg_price_lemanapro|default:"—" }}</td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="5" class="text-center">Товары не найдены</td>
+      </tr>
       {% endfor %}
-      <button type="submit" class="btn btn-success">Скачать в Excel</button>
-    </form>
+    </tbody>
+  </table>
+
+  <!-- Кнопки действий -->
+  <div class="mb-3">
+    <button type="button" class="btn btn-success" id="parse-selected">Парсить все выбранные</button>
+    <button type="button" class="btn btn-secondary" id="export-selected">Экспорт в Excel</button>
   </div>
+</div>
+
+<script>
+$(document).ready(function() {
+
+  // Выделить все
+  $('#select-all').on('change', function() {
+    $('.product-checkbox').prop('checked', this.checked);
+  });
+
+  // Парсинг выбранных
+  $('#parse-selected').on('click', function() {
+    const selected = $('.product-checkbox:checked').map(function() { return this.value; }).get();
+    if (selected.length === 0) { alert('Выберите хотя бы один товар'); return; }
+
+    $.ajax({
+      url: "{% url 'price_parser:parse_selected_products' %}",
+      type: 'POST',
+      data: JSON.stringify({product_ids: selected}),
+      contentType: 'application/json',
+      headers: {'X-CSRFToken': '{{ csrf_token }}'},
+      success: function(data) {
+        alert('Парсинг завершён!');
+        location.reload();
+      },
+      error: function() {
+        alert('Ошибка при парсинге');
+      }
+    });
+  });
+
+  // Экспорт выбранных
+  $('#export-selected').on('click', function() {
+    const selected = $('.product-checkbox:checked').map(function() { return this.value; }).get();
+    if (selected.length === 0) { alert('Выберите хотя бы один товар'); return; }
+
+    const form = $('<form>', {
+      method: 'POST',
+      action: "{% url 'price_parser:export_parsed_excel' %}"
+    });
+    form.append('{% csrf_token %}');
+    selected.forEach(id => {
+      form.append($('<input>', {type:'hidden', name:'product_ids[]', value:id}));
+    });
+    $('body').append(form);
+    form.submit();
+    form.remove();
+  });
+
+});
+</script>
 </body>
 </html>
