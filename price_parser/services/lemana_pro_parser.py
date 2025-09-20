@@ -1,4 +1,3 @@
-
 import time
 from urllib.parse import quote
 from selenium import webdriver
@@ -42,19 +41,18 @@ class LemanaProScraper:
 
         try:
             # Находим контейнеры с товарами
-            title_blocks = self.driver.find_elements(By.CSS_SELECTOR, 'div.c1gua8e6_plp')
-            price_blocks = self.driver.find_elements(By.CSS_SELECTOR, 'div.p1otuot_plp')
+            title_blocks = self.driver.find_elements(By.CSS_SELECTOR, 'div.product-card')
+            price_blocks = self.driver.find_elements(By.CSS_SELECTOR, 'div.price')
 
             for title_block, price_block in zip(title_blocks[:10], price_blocks[:10]):  # топ-10
-                a_tag = title_block.find_element(By.CSS_SELECTOR, 'a[data-qa="product-name"]')
-                name_span = a_tag.find_element(By.CSS_SELECTOR, 'span.product-card-name-link')
-                name = name_span.text.strip()
+                a_tag = title_block.find_element(By.CSS_SELECTOR, 'a.product-card-title')
+                name = a_tag.text.strip()
                 url = "https://lemanapro.ru" + a_tag.get_attribute('href')
 
-                price_main = price_block.find_element(By.CSS_SELECTOR, 'span[data-qa="primary-price-main"]').text.strip()
+                price_main = price_block.find_element(By.CSS_SELECTOR, 'span.price-main').text.strip()
                 price = Decimal(price_main.replace('\xa0', '').replace(' ', ''))
 
-                unit = price_block.find_element(By.CSS_SELECTOR, 'span.p1yvm8ab_plp').text.strip()
+                unit = price_block.find_element(By.CSS_SELECTOR, 'span.unit').text.strip()
 
                 products.append({
                     'name': name,
@@ -77,7 +75,6 @@ class LemanaProScraper:
             'products': products,
             'avg_price': avg_price
         }
-
 if __name__ == "__main__":
     scraper = LemanaProScraper(headless=False)
     try:
@@ -85,7 +82,6 @@ if __name__ == "__main__":
         print(result)
     finally:
         scraper.close()
-
 # import time
 
 # from urllib.parse import quote

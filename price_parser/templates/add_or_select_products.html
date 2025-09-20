@@ -15,7 +15,7 @@
   <div class="container">
     <h2>Добавление товаров</h2>
 
-    <form id="add-product-form" method="post" action="{% url price_parser:product_results' %}">
+    <form id="add-product-form" method="post" action="{% url 'price_parser:show_selected_products' %}">
       {% csrf_token %}
 
       <!-- Выбор категории -->
@@ -98,7 +98,7 @@
       }
 
       // Запрос товаров из выбранной категории
-      $.get("{% url 'price_paser:get_products_by_category' %}?category_id=" + catId, function(data) {
+      $.get("{% url 'price_parser:products_by_category' %}?category_id=" + catId, function(data) {
         if(data.products.length) {
           let options = '<option value="">-- выберите товар --</option>';
           data.products.forEach(p => {

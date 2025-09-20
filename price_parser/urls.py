@@ -1,5 +1,6 @@
 from django.urls import path
 from django.views.decorators.cache import cache_page
+from django.views.generic import TemplateView
 
 from . import views
 from .views import ProductSelectView, ExportExcelView, ProductDetailView
@@ -24,11 +25,12 @@ urlpatterns = [
 #     # # path('subcategories/', views.SubCategoriesByCategoryView.as_view(), name='get_subcategories')
 #     # path('product/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
 #
-# --- Категории ---
+    path('', TemplateView.as_view(template_name='index1.html'), name='home'),
+    # --- Категории ---
     path('categories/', views.CategoryListView.as_view(), name='categories'),  # список категорий
 
     # --- Выбор товаров (новая страница) ---
-    path('selected/', views.ProductSelectView.as_view(), name='select_products'),
+    path('selected/', views.ProductSelectView.as_view(), name='show_selected_products'),
 
     # --- Добавление новых товаров ---
     path('add/', views.AddProductsView.as_view(), name='add_products'),
