@@ -1,0 +1,21 @@
+{% extends "catalog/base.html" %}
+{% block content %}
+<div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+      <div class="border rounded p-4 shadow">
+        <h2 class="text-center mb-3">Подтвердите email</h2>
+        <p class="text-center">
+          На вашу почту отправлено письмо со ссылкой для подтверждения регистрации.
+        </p>
+        <p class="text-center">
+          Пожалуйста, перейдите по ссылке в письме, прежде чем входить в систему.
+        </p>
+        <div class="d-grid mt-3">
+          <a href="{% url 'users:login' %}" class="btn btn-primary">Перейти к авторизации</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

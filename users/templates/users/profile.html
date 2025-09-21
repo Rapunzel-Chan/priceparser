@@ -1,0 +1,26 @@
+{% extends "catalog/base.html" %}
+{% load static %}
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow p-4">
+                <div class="text-center">
+                    {% if user.avatar %}
+                    <img src="{{ user.avatar.url }}" class="rounded-circle mb-3" width="150" height="150" alt="Аватар">
+                    {% else %}
+                    <img src="{% static 'img/default-avatar.png' %}" class="rounded-circle mb-3" width="150"
+                         height="150" alt="Аватар">
+                    {% endif %}
+                    <p class="text-muted">{{ user.email }}</p>
+                    <p class="text-muted">{{ user.phone }}</p>
+                    <p class="text-muted">{{ user.country }}</p>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{% url 'users:profile_edit' %}" class="btn btn-primary">Редактировать профиль</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
