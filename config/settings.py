@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "django.contrib.messages",
     "django.contrib.staticfiles",
     "price_parser",
+    "django_celery_beat",
     # "leroy_db_parser",
     # "estimates",
     # "estimates.apps.EstimatesConfig",
@@ -172,3 +173,6 @@ if CACHE_ENABLED:
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+CELERY_BROKER_URL = "amqp://user:password@localhost:5672//"  # RabbitMQ
+CELERY_RESULT_BACKEND = "redis://localhost:6379/0"          # Redis
