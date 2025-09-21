@@ -79,3 +79,14 @@ class ParsedProductArchive(models.Model):
 
     class Meta:
         indexes = [models.Index(fields=['name'])]
+
+
+class ParserSchedule(models.Model):
+    name = models.CharField(max_length=255, verbose_name="Название парсера")
+    platform = models.CharField(max_length=255, verbose_name="Площадка", default="Lemana Pro")
+    last_run = models.DateTimeField(null=True, blank=True)
+    interval = models.CharField(max_length=50, default="6h")
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.platform})"

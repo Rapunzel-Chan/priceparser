@@ -1,0 +1,27 @@
+<div class="container-xxl flex-grow-1 container-p-y">
+  <h4 class="fw-bold py-3 mb-4">Результаты парсинга</h4>
+
+  <form method="post" action="{% url 'price_parser:export_excel' %}">{% csrf_token %}
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>№</th>
+          <th>Наименование</th>
+          <th>Ед. изм.</th>
+          <th>Средняя цена</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in results %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.unit }}</td>
+          <td>{{ item.price }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <button type="submit" class="btn btn-primary mt-3">Экспорт в Excel</button>
+  </form>
+</div>

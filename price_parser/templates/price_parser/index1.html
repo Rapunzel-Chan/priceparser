@@ -1,0 +1,58 @@
+{% extends "price_parser/base.html" %}
+
+{% block title %}Главная{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+<div class="mb-4">
+  <h3>Приветствуем в системе парсинга цен!</h3>
+  <a href="{% url 'price_parser:add_parser' %}" class="btn btn-success mt-2">Создать новый парсер</a>
+</div>
+
+  <!-- Заголовок -->
+  <h4 class="fw-bold py-3 mb-4">Популярные товары</h4>
+
+  <div class="row g-3">
+    {% for product in popular_products %}
+      <div class="col-lg-3 col-md-4 col-sm-6">
+        <div class="card h-100">
+          <div class="card-body d-flex flex-column">
+            <h5 class="card-title">{{ product.name }}</h5>
+            <p class="card-text mb-1">
+              <strong>Средняя цена:</strong> {{ product.avg_price_lemanapro|default:"-" }} ₽
+            </p>
+            <p class="card-text mb-2">
+              <strong>Категория:</strong>
+              {% if product.category %}
+                {{ product.category.name }}
+              {% else %}
+                -
+              {% endif %}
+            </p>
+            <div class="mt-auto d-flex justify-content-between">
+              <a href="{% url 'price_parser:product_detail' product.id %}" class="btn btn-outline-primary btn-sm">
+                Подробнее
+              </a>
+              <a href="{% url 'price_parser:parsers' %}" class="btn btn-outline-success btn-sm">
+                Настройка парсера
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info">Пока нет популярных товаров для отображения.</div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <!-- Кнопка для запуска парсинга вручную -->
+  <div class="mt-4">
+    <a href="{% url 'price_parser:show_selected_products' %}" class="btn btn-primary">
+      Запустить парсинг
+    </a>
+  </div>
+
+</div>
+{% endblock %}

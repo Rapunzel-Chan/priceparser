@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block title %}Каталог{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="card-header">
+    <h5>Каталог товаров</h5>
+  </div>
+  <div class="card-body">
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Название</th>
+          <th>Ед. изм.</th>
+          <th>Фасовка</th>
+          <th>Средняя цена</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for product in products %}
+        <tr>
+          <td><a href="{% url 'price_parser:product_detail' product.id %}">{{ product.name }}</a></td>
+          <td>{{ product.unit }}</td>
+          <td>{{ product.pack_size }}</td>
+          <td>{{ product.avg_price_lemanapro }}</td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="4" class="text-center">Нет товаров</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

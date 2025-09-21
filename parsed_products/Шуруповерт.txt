@@ -1,0 +1,2 @@
+{'name': 'Дрель-шуруповерт аккумуляторная Makita DF347DWE, 14.4 В Li-ion 2x1.5 Ач', 'price': Decimal('12420'), 'unit': '₽/шт.', 'url': 'https://lemanapro.ruhttps://lemanapro.ru/product/drel-shurupovert-akkumulyatornaya-makita-df347dwe-18769918/'}
+{'name': 'Дрель-шуруповерт аккумуляторная бесщеточная Neolaser NCDB-50-16BS, 16 В Li-Ion 2x2 Ач', 'price': Decimal('6970'), 'unit': '₽/шт.', 'url': 'https://lemanapro.ruhttps://lemanapro.ru/product/drel-shurupovert-akkumulyatornaya-besshchetochnaya-neolaser-ncdb-50-16bs-89418699/'}

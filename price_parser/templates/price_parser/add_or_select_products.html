@@ -1,0 +1,39 @@
+<div class="container-xxl flex-grow-1 container-p-y">
+  <h4 class="fw-bold py-3 mb-4">Выбор товаров</h4>
+
+  <!-- Поиск -->
+  <form id="search-form" class="row g-3 mb-4">
+    <div class="col-md-6"><input type="text" name="q" class="form-control" placeholder="Поиск по названию"></div>
+    <div class="col-md-4">
+      <select name="category" class="form-select">
+        <option value="">Все категории</option>
+        {% for cat in categories %}<option value="{{ cat.id }}">{{ cat.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="col-md-2"><button class="btn btn-primary w-100">Поиск</button></div>
+  </form>
+
+  <!-- Список товаров -->
+  <form method="post" action="{% url 'price_parser:selected_action' %}">{% csrf_token %}
+    <div class="row g-3">
+      {% for product in products %}
+      <div class="col-md-3">
+        <div class="card">
+          <div class="card-body">
+            <input type="checkbox" name="selected_products" value="{{ product.id }}">
+            {{ product.name }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- Ручной ввод -->
+    <div class="mt-4">
+      <label>Добавить товары вручную (через запятую):</label>
+      <input type="text" name="manual_products[]" class="form-control">
+    </div>
+
+    <button class="btn btn-success mt-3">Запустить парсинг</button>
+  </form>
+</div>

@@ -1,0 +1,39 @@
+<form method="post" id="product-form">
+  {% csrf_token %}
+  <label>Категория:</label>
+  <select name="category_id" class="form-select mb-3">
+    {% for category in categories %}
+      <option value="{{ category.id }}">{{ category.name }}</option>
+    {% endfor %}
+  </select>
+
+  <div id="product-fields" class="mb-3">
+    <input type="text" name="product_names[]" placeholder="Название товара" class="form-control mb-2">
+    <input type="number" step="0.01" name="pack_sizes[]" placeholder="Фасовка (шт)" class="form-control mb-2">
+  </div>
+
+  <button type="button" class="btn btn-secondary mb-3" onclick="addField()">Добавить ещё</button>
+  <button type="submit" class="btn btn-primary">Сохранить товары</button>
+</form>
+
+<script>
+function addField() {
+  const container = document.getElementById('product-fields');
+
+  const nameInput = document.createElement('input');
+  nameInput.type = 'text';
+  nameInput.name = 'product_names[]';
+  nameInput.placeholder = 'Название товара';
+  nameInput.className = 'form-control mb-2';
+
+  const packInput = document.createElement('input');
+  packInput.type = 'number';
+  packInput.step = '0.01';
+  packInput.name = 'pack_sizes[]';
+  packInput.placeholder = 'Фасовка (шт)';
+  packInput.className = 'form-control mb-2';
+
+  container.appendChild(nameInput);
+  container.appendChild(packInput);
+}
+</script>

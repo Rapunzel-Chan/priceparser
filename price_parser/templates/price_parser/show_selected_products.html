@@ -1,0 +1,102 @@
+
+{% extends 'price_parser/base.html' %}
+{% block title %}Парсинг{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold py-3 mb-4">Выбор и парсинг товаров</h4>
+
+<form method="get" class="row g-3 mb-3">
+  <div class="col-md-6">
+    <input type="text" name="q" value="{{ search_query }}" placeholder="Поиск..." class="form-control">
+  </div>
+  <div class="col-md-2 form-check">
+    <input type="checkbox" class="form-check-input" name="shortlist" value="1" id="shortlistCheck" {% if shortlist %}checked{% endif %}>
+    <label class="form-check-label" for="shortlistCheck">Только шортлист</label>
+  </div>
+  <div class="col-md-2">
+    <button type="submit" class="btn btn-primary">Фильтровать</button>
+  </div>
+</form>
+
+<div class="row g-3">
+    {% for product in products %}
+    <div class="col-lg-3 col-md-4 col-sm-6">
+        <div class="card h-100 shadow-sm">
+            <div class="card-body d-flex flex-column">
+                <h5 class="card-title">{{ product.name }}</h5>
+                <p class="card-text">Ед. изм.: {{ product.unit|default:"шт." }}</p>
+                <p class="card-text">Фасовка: {{ product.pack_size|default:"1" }}</p>
+                <p class="card-text">Средняя цена: {{ product.avg_price_lemanapro|default:"—" }} ₽</p>
+
+                {% with last_parsed=product.parsedproduct_set.order_by('-fetched_at').first %}
+                {% if last_parsed %}
+                <p class="card-text small text-muted mb-0">
+                    Последнее обновление: {{ last_parsed.fetched_at|date:"d.m.Y H:i" }}<br>
+                    Источник: {{ last_parsed.source }}
+                </p>
+                {% endif %}
+                {% endwith %}
+
+                <div class="mt-auto form-check mt-3">
+                    <input type="checkbox" class="product-checkbox form-check-input" value="{{ product.id }}" id="product{{ product.id }}">
+                    <label class="form-check-label" for="product{{ product.id }}">Выбрать</label>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% empty %}
+    <div class="col-12">
+        <div class="alert alert-info">Товары не найдены</div>
+    </div>
+    {% endfor %}
+</div>
+
+<div class="mt-3">
+    <button type="button" class="btn btn-success" id="parse-selected">Парсить все выбранные</button>
+    <button type="button" class="btn btn-secondary" id="export-selected">Экспорт в Excel</button>
+</div>
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    $('#select-all').on('change', function() {
+        $('.product-checkbox').prop('checked', this.checked);
+    });
+
+    $('#parse-selected').on('click', function() {
+        const selected = $('.product-checkbox:checked').map(function() {return this.value;}).get();
+        if (selected.length === 0) { alert('Выберите хотя бы один товар'); return; }
+
+        $.ajax({
+            url: "{% url 'price_parser:parse_selected' %}",
+            type: 'POST',
+            data: { selected_products: selected, csrfmiddlewaretoken: '{{ csrf_token }}' },
+            success: function() { alert('Парсинг запущен'); location.reload(); },
+            error: function() { alert('Ошибка запуска парсинга'); }
+        });
+    });
+
+    $('#export-selected').on('click', function() {
+        const selected = $('.product-checkbox:checked').map(function() {return this.value;}).get();
+        if (selected.length === 0) { alert('Выберите хотя бы один товар'); return; }
+
+        const form = $('<form>', {
+            method: 'POST',
+            action: "{% url 'price_parser:export_excel' %}"
+        }).append($('<input>', {
+            type: 'hidden',
+            name: 'csrfmiddlewaretoken',
+            value: '{{ csrf_token }}'
+        }));
+
+        selected.forEach(id => {
+            form.append($('<input>', {type: 'hidden', name: 'ids[]', value: id}));
+        });
+
+        $('body').append(form);
+        form.submit();
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

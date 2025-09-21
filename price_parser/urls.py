@@ -3,7 +3,7 @@ from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 
 from . import views
-from .views import ProductSelectView, ExportExcelView, ProductDetailView
+from .views import ProductSelectView, ExportExcelView, ProductDetailView, IndexView
 from price_parser.apps import PriceParserConfig
 # from price_parser.views import AddProductsView
 # # from catalog.views import (CategoryListView, ContactsView, ProductCategoryListView, ProductCreateView,
@@ -25,15 +25,16 @@ urlpatterns = [
 #     # # path('subcategories/', views.SubCategoriesByCategoryView.as_view(), name='get_subcategories')
 #     # path('product/<int:pk>/', ProductDetailView.as_view(), name='product_detail'),
 #
-    path('', TemplateView.as_view(template_name='index1.html'), name='home'),
+    path('', views.IndexView.as_view(), name='index1'),
     # --- Категории ---
     path('categories/', views.CategoryListView.as_view(), name='categories'),  # список категорий
 
     # --- Выбор товаров (новая страница) ---
     path('selected/', views.ProductSelectView.as_view(), name='show_selected_products'),
+    path('selected/action/', views.ProductSelectActionView.as_view(), name='selected_action'),
 
     # --- Добавление новых товаров ---
-    path('add/', views.AddProductsView.as_view(), name='add_products'),
+    # path('add/', views.AddProductsView.as_view(), name='add_products'),
 
     # --- AJAX: товары по категории ---
     path('products_by_category/', views.ProductsByCategoryView.as_view(), name='products_by_category'),
@@ -46,9 +47,17 @@ urlpatterns = [
 
     # --- Экспорт выбранных в Excel ---
     path('export_excel/', views.ExportExcelView.as_view(), name='export_excel'),
+    path('results/', views.ResultsView.as_view(), name='results'),
 
     # --- Детали конкретного товара ---
+    path('products/', views.ProductListView.as_view(), name='products_list'),
     path('product/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
+    path('parsers/', views.ParsersListView.as_view(), name='parsers'),
+    path('parsers/add/', views.AddParserView.as_view(), name='add_parser'),
+    path('parsers/<int:pk>/edit/', views.EditParserView.as_view(), name='edit_parser'),
+    path('parsers/<int:pk>/run/', views.RunParserNowView.as_view(), name='run_parser_now'),
+    path('profile/', TemplateView.as_view(template_name='profile.html'), name='profile'),
+    path('contacts/', TemplateView.as_view(template_name='contacts.html'), name='contacts'),
 
     # --- СТАРЫЙ способ: вывод результатов (если нужен) ---
     # path('results/', views.ProductResultView.as_view(), name='show_selected_products'),

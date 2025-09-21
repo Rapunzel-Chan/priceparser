@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block title %}{{ product.name }}{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold py-3 mb-4">{{ product.name }}</h4>
+
+<div class="card">
+  <div class="card-body">
+    <p><strong>Фасовка:</strong> {{ product.pack_size }} {{ product.unit }}</p>
+    <p><strong>Средняя цена:</strong> {{ product.avg_price_lemanapro }}</p>
+
+    <h6 class="mt-4">Динамика цен</h6>
+    <canvas id="priceChart" style="max-height: 300px;"></canvas>
+  </div>
+</div>
+
+<script>
+const labels = [{% for p in prices %}'{{ p.fetched_at|date:"Y-m-d" }}',{% endfor %}];
+const data = [{% for p in prices %}{{ p.price }},{% endfor %}];
+new Chart(document.getElementById('priceChart'), {
+  type: 'line',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'Цена за упаковку',
+      data: data,
+      borderColor: '#696cff',
+      backgroundColor: 'rgba(105,108,255,0.1)',
+      fill: true,
+      tension: 0.4
+    }]
+  }
+});
+</script>
+{% endblock %}
