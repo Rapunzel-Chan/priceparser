@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.utils import timezone
 from django.views import View
-from django.views.generic import TemplateView, DetailView, ListView
+from django.views.generic import TemplateView, DetailView, ListView, CreateView
 from django.shortcuts import render, redirect
 from django.http import JsonResponse, HttpResponse
 from django.db.models import Q
@@ -11,8 +11,7 @@ import openpyxl
 
 from .models import Product, Category, ParsedProduct, ParserSchedule
 from .utils.price_utils import filtered_unique_mean, extract_unit_and_pack, clean_product_name
-from .services.lemana_pro_parser import LemanaProScraper
-from .tasks import parse_product_task
+
 
 
 # ============================
@@ -20,7 +19,7 @@ from .tasks import parse_product_task
 # ============================
 class CategoryListView(ListView):
     model = Category
-    template_name = 'categories.html'
+    template_name = 'price_parser/categories.html'
     context_object_name = 'categories'
 
 
@@ -28,26 +27,90 @@ class CategoryListView(ListView):
 # Выбор товаров + фильтр
 # ============================
 
+from django.utils import timezone
+from datetime import timedelta
+
 class ProductSelectView(TemplateView):
-    template_name = 'add_or_select_products.html'
+    template_name = 'price_parser/add_or_select_products.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['categories'] = Category.objects.all()
+        category_id = self.request.GET.get('category')
+        context['selected_category'] = int(category_id) if category_id and category_id.isdigit() else None
         context['q'] = self.request.GET.get('q', '')
-        context['shortlist'] = self.request.GET.get('shortlist') == '1'
         queryset = Product.objects.all()
         if context['q']:
             queryset = queryset.filter(name__icontains=context['q'])
-        if context['shortlist']:
-            queryset = queryset.filter(is_main=True)
+        if context['selected_category']:
+            queryset = queryset.filter(category_id=context['selected_category'])
         context['products'] = queryset.order_by('name')
+
+        # --- добавим выбранные товары ---
+        context['selected_products'] = self.request.GET.getlist('selected_products')
         return context
+
 
 
 # ============================
 # Парсинг одного товара через AJAX
 # ============================
+
+import json
+from decimal import Decimal
+from django.views import View
+from django.http import JsonResponse
+from price_parser.services.lemana_parse import async_search_multiple_products
+import asyncio
+
+# class ParseProductView(View):
+#     def post(self, request):
+#         data = json.loads(request.body)
+#         product_name = data.get('name')
+#         if not product_name:
+#             return JsonResponse({'error': 'Нет названия'}, status=400)
+#
+#         async def run_scraper():
+#             results = await async_search_multiple_products([product_name])
+#             product_results = results.get(product_name)
+#             if not product_results or not product_results.get("products"):
+#                 return None
+#
+#             # убираем дубликаты по названию и цене
+#             seen = set()
+#             unique_items = []
+#             for r in product_results["products"]:
+#                 key = (r["name"].lower(), Decimal(r["price"]))
+#                 if key not in seen:
+#                     seen.add(key)
+#                     unique_items.append(r)
+#
+#             prices = [Decimal(r["price"]) for r in unique_items]
+#             if not prices:
+#                 return None
+#
+#             # средняя цена без крайних значений
+#             from price_parser.utils.price_utils import filtered_unique_mean
+#             avg_price = filtered_unique_mean(prices, trim_pct=0.30)
+#             return avg_price
+#
+#         avg_price = asyncio.run(run_scraper())
+#
+#         if avg_price is None:
+#             return JsonResponse({'error': 'Товар не найден'}, status=404)
+#
+#         return JsonResponse({'avg_price_pack': float(avg_price)})
+
+# ============================
+# Парсинг всех выбранных
+# ============================
+
+import json
+from decimal import Decimal
+from django.views import View
+from django.http import JsonResponse
+from price_parser.services.lemana_parse import async_search_multiple_products
+import asyncio
 
 class ParseProductView(View):
     def post(self, request):
@@ -56,59 +119,36 @@ class ParseProductView(View):
         if not product_name:
             return JsonResponse({'error': 'Нет названия'}, status=400)
 
-        scraper = LemanaProScraper(headless=True)
-        try:
-            results = scraper.find_matching_products(product_name)
-        finally:
-            scraper.close()
+        async def run_scraper():
+            results = await async_search_multiple_products([product_name])
+            product_results = results.get(product_name)
+            if not product_results or not product_results.get("products"):
+                return None
 
-        if not results:
+            # убираем дубликаты по названию и цене
+            seen = set()
+            unique_items = []
+            for r in product_results["products"]:
+                key = (r["name"].lower(), Decimal(r["price"]))
+                if key not in seen:
+                    seen.add(key)
+                    unique_items.append(r)
+
+            prices = [Decimal(r["price"]) for r in unique_items]
+            if not prices:
+                return None
+
+            # средняя цена без крайних значений
+            from price_parser.utils.price_utils import filtered_unique_mean
+            avg_price = filtered_unique_mean(prices, trim_pct=0.30)
+            return avg_price
+
+        avg_price = asyncio.run(run_scraper())
+
+        if avg_price is None:
             return JsonResponse({'error': 'Товар не найден'}, status=404)
 
-        # Берем среднее первых 10 позиций
-        top10 = results[:10]
-        prices = [Decimal(str(p['price'])) for p in top10]
-        avg_price = filtered_unique_mean(prices)
-
-        return JsonResponse({'avg_price_pack': float(avg_price) if avg_price else 0})
-
-
-# ============================
-# Парсинг всех выбранных
-# ============================
-
-class ParseSelectedProductsView(View):
-    """
-    Запуск асинхронного парсинга выбранных товаров через Celery
-    и обновление основной модели Product.
-    """
-    def post(self, request, *args, **kwargs):
-        selected_products = request.POST.getlist("selected_products")  # список ID товаров
-
-        for pid in selected_products:
-            try:
-                product = Product.objects.get(id=pid)
-            except Product.DoesNotExist:
-                continue
-
-            # Асинхронно через Celery
-            result = parse_product_task.delay(pid)  # результат парсера (Celery)
-            # Если хочешь синхронно (для теста), можно:
-            # result = parse_product_task(pid)
-
-            # Допустим, parse_product_task возвращает dict с avg_price, unit, pack_size
-            # После выполнения задачи обновляем Product
-            parsed_data = result.get()  # если синхронно
-            if parsed_data:
-                product.avg_price_lemanapro = parsed_data.get('avg_price') or product.avg_price_lemanapro
-                product.unit = parsed_data.get('unit') or product.unit
-                product.pack_size = parsed_data.get('pack_size') or product.pack_size
-                product.save()
-
-        messages.success(request, "Парсинг запущен. Результаты появятся позже.")
-        return redirect("price_parser:show_selected_products")
-
-
+        return JsonResponse({'avg_price_pack': float(avg_price)})
 
 
 # ============================
@@ -139,7 +179,6 @@ class AddProductsView(View):
         return redirect('price_parser:show_selected_products')
 
 
-
 # ============================
 # Товары по категории (AJAX)
 # ============================
@@ -159,14 +198,13 @@ class ProductsByCategoryView(View):
 
 class ProductDetailView(DetailView):
     model = Product
-    template_name = 'product_detail.html'
+    template_name = 'price_parser/product_detail.html'
     context_object_name = 'product'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['prices'] = ParsedProduct.objects.filter(
-            name=self.object.name
-        ).order_by('fetched_at').values('fetched_at', 'price')
+        context['prices'] = ParsedProduct.objects.filter(product=self.object).order_by('fetched_at').values(
+            'fetched_at', 'price')
         return context
 
 
@@ -180,26 +218,25 @@ class ExportExcelView(View):
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Товары"
-        ws.append([
-            "№", "Наименование", "Ед. изм.", "Цена за ед.", "Входная цена", "Кол-во в упаковке"
-        ])
-
+        ws.append(["№", "Наименование", "Ед. изм.", "Цена за ед.", "Цена за упаковку", "Кол-во в упаковке"])
         products = Product.objects.filter(id__in=ids)
-        for idx, product in enumerate(products, start=1):
-            unit, pack_size = extract_unit_and_pack(product.name)
-            price_per_pack = product.avg_price_lemanapro or 0
-            price_per_unit = price_per_pack / Decimal(str(pack_size)) if pack_size else price_per_pack
+        for idx, product in enumerate(products, 1):
+            pack_size = product.pack_size or Decimal('1')
+            price_pack = product.avg_price_lemanapro or Decimal('0')
+            try:
+                price_per_unit = (price_pack / Decimal(pack_size)).quantize(Decimal('0.01'))
+            except Exception:
+                price_per_unit = price_pack
             ws.append([
-                idx,
-                clean_product_name(product.name),
-                unit or 'шт.',
-                round(price_per_unit, 2),
-                round(price_per_pack, 2),
-                pack_size,
+                idx, clean_product_name(product.name),
+                product.unit or "шт.",
+                float(price_per_unit),
+                float(price_pack),
+                float(pack_size),
             ])
 
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = 'attachment; filename=selected_products.xlsx'
+        # response['Content-Disposition'] = 'attachment; filename=selected_products.xlsx'
         wb.save(response)
         return response
 
@@ -212,8 +249,9 @@ from django.shortcuts import render, redirect
 from django.contrib import messages
 from .models import Product
 
+
 class IndexView(View):
-    template_name = 'index1.html'
+    template_name = 'price_parser/index1.html'
 
     def get(self, request):
         popular_products = Product.objects.order_by('-avg_price_lemanapro')[:8]
@@ -237,27 +275,57 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from .models import ParserSchedule
 from .forms import ParserScheduleForm
-from .tasks import parse_product_task  # если нужно запускать Celery для теста
+
+
 
 # Список парсеров
 class ParsersListView(View):
     def get(self, request):
         parsers = ParserSchedule.objects.all()
-        return render(request, 'parsers.html', {'parsers': parsers})
+        return render(request, 'price_parser/parsers.html', {'parsers': parsers})
+
 
 # Добавление нового парсера
-class AddParserView(View):
-    def get(self, request):
-        form = ParserScheduleForm()
-        return render(request, 'parser_form.html', {'form': form, 'title': 'Добавить парсер'})
+class AddParserView(CreateView):
+    model = ParserSchedule
+    form_class = ParserScheduleForm
+    template_name = 'price_parser/parser_form.html'
 
-    def post(self, request):
-        form = ParserScheduleForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Парсер успешно добавлен")
-            return redirect('price_parser:parsers')
-        return render(request, 'parser_form.html', {'form': form, 'title': 'Добавить парсер'})
+    def form_valid(self, form):
+        form.instance.user = self.request.user
+        self.object = form.save()
+        if not self.object.manual and self.object.interval:
+            self._create_periodic_task(self.object)
+        return redirect('price_parser:parser_select_products', pk=self.object.pk)
+
+    def _create_periodic_task(self, parser):
+        from django_celery_beat.models import PeriodicTask, IntervalSchedule
+        import json
+        schedule, _ = IntervalSchedule.objects.get_or_create(
+            every=parser.interval, period='minutes')
+        PeriodicTask.objects.update_or_create(
+            name=f"parse_parser_{parser.pk}",
+            defaults={
+                'interval': schedule,
+                'task': 'price_parser.tasks.parse_parser_products',
+                'args': json.dumps([parser.pk]),
+            }
+        )
+
+
+class ParserSelectProductsView(View):
+    template_name = 'price_parser/parser_select_products.html'
+
+    def get(self, request, pk):
+        parser = get_object_or_404(ParserSchedule, pk=pk, user=request.user)
+        products = Product.objects.all()
+        return render(request, self.template_name, {'parser': parser, 'products': products})
+
+    def post(self, request, pk):
+        parser = get_object_or_404(ParserSchedule, pk=pk, user=request.user)
+        selected_ids = request.POST.getlist('products')
+        parser.products.set(Product.objects.filter(id__in=selected_ids))
+        return redirect('price_parser:products_list')
 
 # Редактирование парсера
 class EditParserView(View):
@@ -275,6 +343,7 @@ class EditParserView(View):
             return redirect('price_parser:parsers')
         return render(request, 'parser_form.html', {'form': form, 'title': 'Редактировать парсер'})
 
+
 # Запуск парсера вручную (можно через Celery)
 class RunParserNowView(View):
     def get(self, request, pk):
@@ -286,35 +355,134 @@ class RunParserNowView(View):
         messages.success(request, f"Парсер '{parser.name}' запущен")
         return redirect('price_parser:parsers')
 
+from django.views import View
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.utils import timezone
+from decimal import Decimal
+from .models import Product, ParsedProduct
+
+from .services.lemana_parse import search_lemanapro_products
+import asyncio
+import logging
+from decimal import Decimal
+
+from django.views import View
+from django.shortcuts import redirect
+from django.contrib import messages
+from django.utils import timezone
+
+from price_parser.models import Product, ParsedProduct
+from price_parser.tasks import parse_products_batch_task
+from price_parser.utils.price_utils import filtered_unique_mean
+from price_parser.services.lemana_parse import async_search_multiple_products
+
+logger = logging.getLogger(__name__)
+
+
+from django.shortcuts import render
+from django.views import View
+from django.contrib import messages
+from .models import Product
 
 class ProductSelectActionView(View):
-    def post(self, request):
-        selected_ids = request.POST.getlist('selected_products')
-        manual_names = request.POST.getlist('manual_products[]')
+    def get(self, request, *args, **kwargs):
+        # Получаем список выбранных товаров из GET-параметров
+        selected_products = request.GET.getlist('selected_products')
+        # Преобразуем в строковый формат для использования в шаблоне
+        selected_products = [str(product_id) for product_id in selected_products]
 
-        for name in manual_names:
-            if name.strip():
-                Product.objects.get_or_create(name=name.strip())
+        # Получаем все товары для отображения
+        products = Product.objects.all()
 
-        for pid in selected_ids:
-            if Product.objects.filter(id=pid).exists():
-                parse_product_task.delay(pid)  # Celery парсинг
-        messages.success(request, "Парсинг запущен")
-        return redirect('price_parser:results')
+        # Передаем данные в контекст шаблона
+        context = {
+            'products': products,
+            'selected_products': selected_products,
+            'q': request.GET.get('q', ''),
+            'selected_category': request.GET.get('category', ''),
+            'categories': Category.objects.all(),
+        }
+        return render(request, 'price_parser/add_or_select_products.html', context)
 
+    def post(self, request, *args, **kwargs):
+        # Обрабатываем выбранные товары и товары, добавленные вручную
+        selected_products = request.POST.getlist('selected_products')
+        manual_products = request.POST.get('manual_products', '').split(',')
+
+        # Логика парсинга товаров
+        # ...
+
+        # Отображаем сообщение об успешном запуске парсинга
+        messages.success(request, 'Парсинг запущен для выбранных и новых товаров.')
+        return redirect('price_parser:product_select')
+
+
+
+
+
+
+# ============================
+# Результаты парсинга
+# ============================
+
+from django.views.generic import ListView
 
 class ResultsView(ListView):
-    model = ParsedProduct
-    template_name = 'results.html'
-    context_object_name = 'results'
-    ordering = ['fetched_at']
+    model = Product
+    template_name = 'price_parser/show_selected_products.html'
+    context_object_name = 'products'
 
     def get_queryset(self):
-        return ParsedProduct.objects.all().order_by('fetched_at')
+        ids = self.request.session.get('parsed_products_ids', [])
+        return Product.objects.filter(id__in=ids)
+
 
 
 class ProductListView(ListView):
     model = Product
-    template_name = 'products_list.html'
+    template_name = 'price_parser/products_list.html'
     context_object_name = 'products'
     ordering = ['-avg_price_lemanapro']
+
+
+from django.views.generic import TemplateView
+from django.db.models import F, Subquery, OuterRef, Avg
+from .models import Product, ParsedProduct
+from datetime import timedelta
+from django.utils import timezone
+
+class ReportsView(TemplateView):
+    template_name = "price_parser/reports.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Рассчитаем % изменение по каждому продукту: сравнить среднюю за 30 дней и среднюю за предыдущие 30 дней
+        now = timezone.now()
+        last_30 = now - timedelta(days=30)
+        prev_60 = now - timedelta(days=60)
+
+        products = Product.objects.all()
+        report_items = []
+        for p in products:
+            new_avg_qs = ParsedProduct.objects.filter(product=p, fetched_at__gte=last_30)
+            prev_avg_qs = ParsedProduct.objects.filter(product=p, fetched_at__gte=prev_60, fetched_at__lt=last_30)
+
+            new_avg = new_avg_qs.aggregate(avg=Avg('price'))['avg'] or 0
+            prev_avg = prev_avg_qs.aggregate(avg=Avg('price'))['avg'] or 0
+
+            if prev_avg:
+                change_pct = ((new_avg - prev_avg) / prev_avg) * 100
+            else:
+                change_pct = None
+
+            report_items.append({
+                "product": p,
+                "new_avg": new_avg,
+                "prev_avg": prev_avg,
+                "change_pct": round(change_pct, 2) if change_pct is not None else None,
+                "popularity": p.popularity or 0
+            })
+
+        context['report_items'] = sorted(report_items, key=lambda x: (x['change_pct'] is None, -(x['change_pct'] or 0)))[:100]
+        return context

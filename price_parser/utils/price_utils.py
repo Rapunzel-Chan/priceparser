@@ -33,29 +33,21 @@ def filtered_unique_mean(prices: Iterable, trim_pct: float = 0.30) -> Optional[D
     nums = [n for n in nums if n is not None]
     if not nums:
         return None
-
-    # Уникальные цены
     unique = sorted(list({n for n in nums}))
-    if len(unique) == 0:
-        return None
     if len(unique) == 1:
         return unique[0].quantize(Decimal('0.01'))
-
-    # медиана
     ln = len(unique)
     if ln % 2 == 1:
         median = unique[ln // 2]
     else:
-        median = (unique[ln//2 - 1] + unique[ln//2]) / Decimal(2)
-
+        median = (unique[ln // 2 - 1] + unique[ln // 2]) / Decimal(2)
     lower = median * (Decimal(1) - Decimal(str(trim_pct)))
     upper = median * (Decimal(1) + Decimal(str(trim_pct)))
-
     filtered = [p for p in unique if lower <= p <= upper]
     if not filtered:
         return None
-
-    avg = sum(filtered) / Decimal(len(filtered))
+    total = sum(filtered, Decimal('0'))
+    avg = total / Decimal(len(filtered))
     return avg.quantize(Decimal('0.01'))
 
 

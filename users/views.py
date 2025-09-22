@@ -22,7 +22,7 @@ def logout_view(request):
     if request.method == "POST":
         logout(request)
         return redirect("users:logout_done")
-    return redirect("catalog:products_list")
+    return redirect("price_parser:products_list")
 
 
 class UserCreateView(CreateView):

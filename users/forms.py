@@ -1,7 +1,7 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 
-from catalog.forms import StyleFormMixin
+from price_parser.forms import StyleFormMixin
 from users.models import User
 
 
@@ -11,7 +11,7 @@ class UserProfileForm(forms.ModelForm):
         fields = ["email", "phone", "avatar", "country"]
 
 
-class UserRegisterForm(StyleFormMixin, UserCreationForm):
+class UserRegisterForm(UserCreationForm):
     class Meta:
         model = User
         fields = ("email", "password1", "password2")

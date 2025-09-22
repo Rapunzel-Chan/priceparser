@@ -1,4 +1,3 @@
-# price_parser/management/commands/parse_lemana_pro.py
 
 import os
 import time
@@ -36,44 +35,46 @@ class LemanaProScraper:
         self.driver.quit()
 
     def find_matching_products(self, product_name):
-        from selenium.webdriver.common.by import By
-        from selenium.webdriver.support.ui import WebDriverWait
-        from selenium.webdriver.support import expected_conditions as EC
-
         query = ' '.join(product_name.lower().split()[:3])
         url = self.BASE_URL + quote(query)
         print(f"🔎 Открываем страницу поиска: {url}")
         self.driver.get(url)
+        time.sleep(4)  # стартовая пауза для загрузки
 
-        # Ждем появления карточек
-        WebDriverWait(self.driver, 10).until(
-            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[data-qa='product-name']"))
-        )
+        # Прокрутка страницы для подгрузки всех товаров
+        SCROLL_PAUSE_TIME = 2
+        last_height = self.driver.execute_script("return document.body.scrollHeight")
+
+        while True:
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(SCROLL_PAUSE_TIME)
+            new_height = self.driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
 
         products = []
 
         try:
-            # блоки с названием
-            title_blocks = self.driver.find_elements(By.CSS_SELECTOR, "div.c1gua8e6_plp")
+            title_blocks = self.driver.find_elements("css selector", "div.c1gua8e6_plp")
+            price_blocks = self.driver.find_elements("css selector", "div.p1otuot_plp")
 
-            # блоки с ценой (обновленный селектор!)
-            price_blocks = self.driver.find_elements(By.CSS_SELECTOR, "div[data-qa='product-primary-price']")
-
-            for title_block, price_block in zip(title_blocks[:10], price_blocks[:10]):  # топ-10
-                # название
-                a_tag = title_block.find_element(By.CSS_SELECTOR, 'a[data-qa="product-name"]')
-                name_span = a_tag.find_element(By.CSS_SELECTOR, "span.product-card-name-link")
+            for title_block, price_block in zip(title_blocks, price_blocks):
+                a_tag = title_block.find_element("css selector", 'a[data-qa="product-name"]')
+                name_span = a_tag.find_element("css selector", "span.product-card-name-link")
                 name = name_span.text.strip()
                 url = "https://lemanapro.ru" + a_tag.get_attribute("href")
 
-                # цена (новый селектор)
-                price_main = price_block.find_element(By.CSS_SELECTOR, "span[data-qa='primary-price-main']").text.strip()
-                price = Decimal(price_main.replace("\xa0", "").replace(" ", ""))
+                price_main = price_block.find_element("css selector", 'span[data-qa="primary-price-main"]').text.strip()
+                price = Decimal(price_main.replace("\xa0", "").replace(" ", "").replace(",", "."))
 
-                # единица (остался тот же)
-                unit = price_block.find_element(By.CSS_SELECTOR, "span.p1yvm8ab_plp").text.strip()
+                unit = price_block.find_element("css selector", "span.p1yvm8ab_plp").text.strip()
 
                 products.append({"name": name, "price": price, "unit": unit, "url": url})
+                print(f"💰 Пропарсено: {name} — {price} {unit}")
+
+                if len(products) >= 15:  # останавливаем после 15 товаров
+                    break
 
         except Exception as e:
             print(f"❌ Ошибка парсинга: {e}")
@@ -85,7 +86,6 @@ class LemanaProScraper:
         avg_price = filtered_unique_mean(prices, trim_pct=0.3)
 
         return {"products": products, "avg_price": avg_price}
-
 
 
 class Command(BaseCommand):

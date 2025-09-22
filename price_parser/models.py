@@ -2,10 +2,13 @@ from django.db import models
 
 # Create your models here.
 
-
+from django_celery_beat.models import PeriodicTask, IntervalSchedule
+import json
 from django.db import models
 from django.db.models import Avg
 from django.utils import timezone
+
+from config import settings
 
 
 class Category(models.Model):
@@ -28,7 +31,7 @@ class Product(models.Model):
     SOURCE_CHOICES = [
         # ('ozon', 'Ozon'),
         # ('yandex', 'Yandex'),
-        ('leroy_merlen', 'Leroy Merlen'),
+        ('lemanapro', 'LemanaPro'),
         # при необходимости добавь другие источники здесь
     ]
 
@@ -59,11 +62,14 @@ class Product(models.Model):
         return self.avg_price_lemanapro
 
 class ParsedProduct(models.Model):
+    product = models.ForeignKey(
+        "Product", null=True, blank=True, on_delete=models.SET_NULL, related_name="parsed_products"
+    )
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     unit = models.CharField(max_length=50, null=True, blank=True)
     url = models.URLField(max_length=500, null=True, blank=True)
-    source = models.CharField(max_length=100)  # Например: 'lemanapro'
+    source = models.CharField(max_length=100, default='lemanapro')
     fetched_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -81,12 +87,48 @@ class ParsedProductArchive(models.Model):
         indexes = [models.Index(fields=['name'])]
 
 
+from django.db import models
+from django.utils import timezone
+from django_celery_beat.models import PeriodicTask, IntervalSchedule
+import json
+from config import settings
+
 class ParserSchedule(models.Model):
+    PLATFORM_CHOICES = [
+        ('Lemana Pro', 'Lemana Pro'),
+        ('Ozon', 'Ozon'),
+        ('Yandex', 'Yandex'),
+    ]
+
+    platform = models.CharField(
+        max_length=255,
+        verbose_name="Площадка",
+        choices=PLATFORM_CHOICES,
+        default='Lemana Pro'
+    )
     name = models.CharField(max_length=255, verbose_name="Название парсера")
-    platform = models.CharField(max_length=255, verbose_name="Площадка", default="Lemana Pro")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     last_run = models.DateTimeField(null=True, blank=True)
+    manual = models.BooleanField(default=False)
     interval = models.CharField(max_length=50, default="6h")
     is_active = models.BooleanField(default=True)
+    products = models.ManyToManyField('Product', blank=True, related_name='parsers')
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        # Создаём/обновляем PeriodicTask для всех продуктов парсера
+        product_ids = list(self.products.values_list('id', flat=True))
+        if product_ids:
+            schedule, _ = IntervalSchedule.objects.get_or_create(every=self.interval, period='minutes')
+            PeriodicTask.objects.update_or_create(
+                name=f"parse_{self.pk}",
+                defaults={
+                    'interval': schedule,
+                    'task': 'price_parser.tasks.parse_parser_products',  # таск пройдётся по всем продуктам
+                    'args': json.dumps([self.pk]),  # передаем ID парсера
+                }
+            )
 
     def __str__(self):
         return f"{self.name} ({self.platform})"
+

@@ -30,7 +30,7 @@ urlpatterns = [
     path('categories/', views.CategoryListView.as_view(), name='categories'),  # список категорий
 
     # --- Выбор товаров (новая страница) ---
-    path('selected/', views.ProductSelectView.as_view(), name='show_selected_products'),
+    path('selected/', views.ProductSelectView.as_view(), name='add_or_select_products'),
     path('selected/action/', views.ProductSelectActionView.as_view(), name='selected_action'),
 
     # --- Добавление новых товаров ---
@@ -40,25 +40,28 @@ urlpatterns = [
     path('products_by_category/', views.ProductsByCategoryView.as_view(), name='products_by_category'),
 
     # --- AJAX: парсинг одного товара ---
-    path('parse_product/', views.ParseProductView.as_view(), name='parse_product'),
+    # path('parse_product/', views.ParseProductView.as_view(), name='parse_product'),
 
     # --- AJAX: парсинг всех выбранных товаров ---
-    path('parse_selected/', views.ParseSelectedProductsView.as_view(), name='parse_selected'),
+    # path('parse_selected/', views.ParseSelectedProductsView.as_view(), name='parse_selected'),
 
     # --- Экспорт выбранных в Excel ---
     path('export_excel/', views.ExportExcelView.as_view(), name='export_excel'),
-    path('results/', views.ResultsView.as_view(), name='results'),
+    path('results/', views.ResultsView.as_view(), name='show_selected_products'),
 
     # --- Детали конкретного товара ---
     path('products/', views.ProductListView.as_view(), name='products_list'),
     path('product/<int:pk>/', views.ProductDetailView.as_view(), name='product_detail'),
     path('parsers/', views.ParsersListView.as_view(), name='parsers'),
     path('parsers/add/', views.AddParserView.as_view(), name='add_parser'),
+    path('parsers/<int:pk>/select-products/', views.ParserSelectProductsView.as_view(), name='parser_select_products'),
+
     path('parsers/<int:pk>/edit/', views.EditParserView.as_view(), name='edit_parser'),
     path('parsers/<int:pk>/run/', views.RunParserNowView.as_view(), name='run_parser_now'),
     path('profile/', TemplateView.as_view(template_name='profile.html'), name='profile'),
     path('contacts/', TemplateView.as_view(template_name='contacts.html'), name='contacts'),
-
+    # Reports
+    path("reports/", views.ReportsView.as_view(), name="reports"),
     # --- СТАРЫЙ способ: вывод результатов (если нужен) ---
     # path('results/', views.ProductResultView.as_view(), name='show_selected_products'),
 ]

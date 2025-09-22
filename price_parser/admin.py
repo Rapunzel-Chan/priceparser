@@ -2,7 +2,8 @@ from django.contrib import admin
 
 # Register your models here.
 from django.contrib import admin
-from .models import Category, Product, ParsedProduct, ParsedProductArchive
+from .models import Category, Product, ParsedProduct, ParsedProductArchive, ParserSchedule
+
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
@@ -21,3 +22,8 @@ class ParsedProductAdmin(admin.ModelAdmin):
 @admin.register(ParsedProductArchive)
 class ParsedProductArchiveAdmin(admin.ModelAdmin):
     list_display = ('name', 'price', 'unit', 'source', 'fetched_at')
+
+@admin.register(ParserSchedule)
+class ParserScheduleAdmin(admin.ModelAdmin):
+    list_display = ('name', 'platform', 'interval', 'is_active', 'last_run')
+    list_filter = ('platform', 'is_active')
