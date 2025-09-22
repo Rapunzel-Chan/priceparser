@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     # "estimates.apps.EstimatesConfig",
     "users",
     "phonenumber_field",
+    "rest_framework",
+    "rest_framework_simplejwt",
 ]
 
 MIDDLEWARE = [
