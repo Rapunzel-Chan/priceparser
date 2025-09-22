@@ -36,28 +36,42 @@ class LemanaProScraper:
         self.driver.quit()
 
     def find_matching_products(self, product_name):
+        from selenium.webdriver.common.by import By
+        from selenium.webdriver.support.ui import WebDriverWait
+        from selenium.webdriver.support import expected_conditions as EC
+
         query = ' '.join(product_name.lower().split()[:3])
         url = self.BASE_URL + quote(query)
         print(f"🔎 Открываем страницу поиска: {url}")
         self.driver.get(url)
-        time.sleep(4)
+
+        # Ждем появления карточек
+        WebDriverWait(self.driver, 10).until(
+            EC.presence_of_all_elements_located((By.CSS_SELECTOR, "a[data-qa='product-name']"))
+        )
 
         products = []
 
         try:
-            title_blocks = self.driver.find_elements("css selector", "div.c1gua8e6_plp")
-            price_blocks = self.driver.find_elements("css selector", "div.p1otuot_plp")
+            # блоки с названием
+            title_blocks = self.driver.find_elements(By.CSS_SELECTOR, "div.c1gua8e6_plp")
+
+            # блоки с ценой (обновленный селектор!)
+            price_blocks = self.driver.find_elements(By.CSS_SELECTOR, "div[data-qa='product-primary-price']")
 
             for title_block, price_block in zip(title_blocks[:10], price_blocks[:10]):  # топ-10
-                a_tag = title_block.find_element("css selector", 'a[data-qa="product-name"]')
-                name_span = a_tag.find_element("css selector", "span.product-card-name-link")
+                # название
+                a_tag = title_block.find_element(By.CSS_SELECTOR, 'a[data-qa="product-name"]')
+                name_span = a_tag.find_element(By.CSS_SELECTOR, "span.product-card-name-link")
                 name = name_span.text.strip()
                 url = "https://lemanapro.ru" + a_tag.get_attribute("href")
 
-                price_main = price_block.find_element("css selector", 'span[data-qa="primary-price-main"]').text.strip()
+                # цена (новый селектор)
+                price_main = price_block.find_element(By.CSS_SELECTOR, "span[data-qa='primary-price-main']").text.strip()
                 price = Decimal(price_main.replace("\xa0", "").replace(" ", ""))
 
-                unit = price_block.find_element("css selector", "span.p1yvm8ab_plp").text.strip()
+                # единица (остался тот же)
+                unit = price_block.find_element(By.CSS_SELECTOR, "span.p1yvm8ab_plp").text.strip()
 
                 products.append({"name": name, "price": price, "unit": unit, "url": url})
 
@@ -71,6 +85,7 @@ class LemanaProScraper:
         avg_price = filtered_unique_mean(prices, trim_pct=0.3)
 
         return {"products": products, "avg_price": avg_price}
+
 
 
 class Command(BaseCommand):
