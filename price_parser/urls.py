@@ -46,7 +46,8 @@ urlpatterns = [
     # path('parse_selected/', views.ParseSelectedProductsView.as_view(), name='parse_selected'),
 
     # --- Экспорт выбранных в Excel ---
-    path('export_excel/', views.ExportExcelView.as_view(), name='export_excel'),
+    path('export_excel/', views.ExportExcelView.as_view(), name='export_summary_excel'),
+    path('export_excel_details/', views.ExportExcelView.as_view(), name='export_detailed_excel'),
     path('results/', views.ResultsView.as_view(), name='show_selected_products'),
 
     # --- Детали конкретного товара ---

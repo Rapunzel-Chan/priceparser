@@ -35,7 +35,7 @@
         </tbody>
     </table>
 
-    <form method="post" action="{% url 'price_parser:export_summary_excel' %}">
+    <form method="post" action="{% url 'price_parser:export_summary_excel' %}" target="_blank">
         {% csrf_token %}
         {% for p in selected_products %}
         <input type="hidden" name="ids[]" value="{{ p.id }}">
@@ -43,7 +43,7 @@
         <button class="btn btn-success mb-2">Выгрузить сводный отчет</button>
     </form>
 
-    <form method="post" action="{% url 'price_parser:export_detailed_excel' %}">
+    <form method="post" action="{% url 'price_parser:export_detailed_excel' %}" target="_blank">
         {% csrf_token %}
         {% for p in selected_products %}
         <input type="hidden" name="ids[]" value="{{ p.id }}">
