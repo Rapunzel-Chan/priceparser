@@ -491,25 +491,30 @@ from price_parser.utils.price_utils import filtered_unique_mean, extract_unit_an
 
 class ResultsView(View):
     """
-    Отображение результатов парсинга — все продукты с ParsedProduct.
+    Отображение результатов парсинга — только выбранные продукты.
     """
     template_name = "price_parser/show_selected_products.html"
 
     def get(self, request):
-        products = Product.objects.filter(parsed_products__isnull=False).distinct().order_by("name")
+        # Берём только выбранные продукты из сессии
+        selected_ids = request.session.get('selected_products_ids', [])
+        products = Product.objects.filter(id__in=selected_ids)
         table_data = []
 
         for prod in products:
             last_parsed = prod.parsed_products.order_by("-fetched_at").first()
+            if not last_parsed:
+                continue  # если ещё нет пропарсенного товара, пропускаем
 
-            # Берём данные из ParsedProduct, если есть, иначе fallback на Product
             pack_size = last_parsed.pack_size or prod.pack_size or 1
             unit = last_parsed.unit or prod.unit or "шт."
             avg_price_pack = filtered_unique_mean(prod.parsed_products.values_list("price", flat=True)) or 0
-            price_per_unit = (avg_price_pack / pack_size) if pack_size else avg_price_pack
-            source = last_parsed.source if last_parsed else prod.source
-            fetched_at = last_parsed.fetched_at if last_parsed else timezone.now()
-            url = last_parsed.url if last_parsed else ""
+            price_per_unit = avg_price_pack / pack_size if pack_size else avg_price_pack
+            source = last_parsed.source
+            fetched_at = last_parsed.fetched_at
+            if timezone.is_aware(fetched_at):
+                fetched_at = timezone.make_naive(fetched_at)
+            url = last_parsed.url
 
             table_data.append({
                 "product_id": prod.id,
@@ -524,6 +529,7 @@ class ResultsView(View):
             })
 
         return render(request, self.template_name, {"table_data": table_data})
+
 
 
 
