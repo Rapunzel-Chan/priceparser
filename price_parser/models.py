@@ -48,6 +48,7 @@ class Product(models.Model):
     unit = models.CharField(max_length=20, null=True, blank=True)
     pack_size = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     popularity = models.IntegerField(default=0)
+    parsing_done = models.BooleanField(default=False)
 
     class Meta:
         indexes = [models.Index(fields=['name'])]
@@ -76,12 +77,13 @@ class ParsedProduct(models.Model):
         indexes = [models.Index(fields=['name'])]
 
 class ParsedProductArchive(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='parsed_products_archive', default=1)
     name = models.CharField(max_length=255)
-    price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    unit = models.CharField(max_length=50, null=True, blank=True)
-    url = models.URLField(max_length=500, null=True, blank=True)
-    source = models.CharField(max_length=100)
-    fetched_at = models.DateTimeField()
+    price = models.DecimalField(max_digits=12, decimal_places=2)
+    unit = models.CharField(max_length=50, blank=True, null=True)
+    url = models.URLField(blank=True, null=True)
+    source = models.CharField(max_length=50, default='lemanapro')
+    fetched_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [models.Index(fields=['name'])]

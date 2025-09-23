@@ -1,59 +1,127 @@
-import asyncio
-from decimal import Decimal
 from celery import shared_task
 from django.utils import timezone
-from price_parser.models import Product, ParsedProduct
-from price_parser.utils.price_utils import filtered_unique_mean
-from price_parser.services.lemana_parse import async_search_multiple_products
+from .models import Product, ParsedProduct
+from .services.lemana_parse import LemanaProScraper
+import logging
+
+logger = logging.getLogger(__name__)
+
+@shared_task(bind=True)
+def parse_products_batch_task(self, product_ids):
+    """
+    Парсим список продуктов через LemanaProScraper.
+    Используется headless Chrome на Windows + Celery --pool=solo.
+    Логирование с подробностями по каждому продукту.
+    """
+    logger.info(f"🔹 Запуск парсинга продуктов: {product_ids}")
+    print(f"🔹 Запуск парсинга продуктов: {product_ids}")
+
+    scraper = LemanaProScraper(headless=False)
+    total_parsed = 0
+
+    try:
+        for pid in product_ids:
+            try:
+                product = Product.objects.get(id=pid)
+            except Product.DoesNotExist:
+                logger.warning(f"❌ Продукт с id={pid} не найден")
+                print(f"❌ Продукт с id={pid} не найден")
+                continue
+
+            logger.info(f"🔎 Парсер обрабатывает продукт: {product.name}")
+            print(f"🔎 Парсер обрабатывает продукт: {product.name}")
+
+            try:
+                result = scraper.find_matching_products(product.name)
+            except Exception as e:
+                logger.error(f"❌ Ошибка парсинга {product.name}: {e}")
+                print(f"❌ Ошибка парсинга {product.name}: {e}")
+                continue
+
+            if result and result.get("products"):
+                for p in result["products"]:
+                    parsed_product = ParsedProduct.objects.create(
+                        name=p["name"],
+                        price=p["price"],
+                        unit=p.get("unit"),
+                        url=p.get("url"),
+                        source="lemanapro",
+                        product=product
+                    )
+                    logger.info(f"💰 Пропарсено: {parsed_product.name} — {parsed_product.price} {parsed_product.unit}")
+                    print(f"💰 Пропарсено: {parsed_product.name} — {parsed_product.price} {parsed_product.unit}")
+                    total_parsed += 1
+            else:
+                logger.info(f"⚠️ Продукт {product.name} не найден на сайте")
+                print(f"⚠️ Продукт {product.name} не найден на сайте")
+
+            # Отмечаем продукт как спарсенный (опционально)
+            product.parsing_done = True
+            product.save()
+
+    finally:
+        scraper.close()
+        logger.info(f"✅ Все продукты обработаны. Всего спарсено: {total_parsed}")
+        print(f"✅ Все продукты обработаны. Всего спарсено: {total_parsed}")
+
+
 
 @shared_task
-def parse_products_batch_task(product_ids: list[int]):
+def parse_parser_products(parser_id: int):
+    from .models import ParserSchedule
+    parser = ParserSchedule.objects.get(pk=parser_id)
+    product_ids = list(parser.products.values_list('id', flat=True))
+    parse_products_batch_task.delay(product_ids)
+    parser.last_run = timezone.now()
+    parser.save()
+
+# @shared_task
+# def parse_products_batch_task(product_ids: list[int]):
+#     """
+#     Парсит список товаров по логике LemanaProScraper.
+#     """
+#     products = Product.objects.filter(id__in=product_ids)
+#     scraper = LemanaProScraper(headless=True)
+#
+#     try:
+#         for product in products:
+#             result = scraper.find_matching_products(product.name)
+#             if not result:
+#                 continue
+#
+#             product.avg_price_lemanapro = result["avg_price"]
+#             product.parsed = True
+#             product.save()
+#
+#             for p in result["products"]:
+#                 ParsedProduct.objects.create(
+#                     product=product,
+#                     name=p["name"],
+#                     price=p["price"],
+#                     unit=p["unit"],
+#                     url=p["url"],
+#                     source="lemanapro",
+#                 )
+#
+#             filename = os.path.join("parsed_products", f"{product.name}.txt")
+#             with open(filename, "w", encoding="utf-8") as f:
+#                 for p in result["products"]:
+#                     f.write(f"{p}\n")
+#     finally:
+#         scraper.close()
+
+
+@shared_task
+def parse_parser_products(parser_id: int):
     """
-    Batch Celery таск: парсинг нескольких продуктов одним браузером.
+    Парсинг всех товаров, связанных с конкретным ParserSchedule.
     """
-    products = Product.objects.filter(id__in=product_ids)
-
-    async def run_scraper(products_list):
-        results_dict = await async_search_multiple_products([p.name for p in products_list])
-
-        for product in products_list:
-            product_results = results_dict.get(product.name)
-            if not product_results or not product_results.get("products"):
-                continue
-
-            unique_items = []
-            seen = set()
-            for r in product_results["products"]:
-                key = (r["name"].lower(), Decimal(r["price"]))
-                if key not in seen:
-                    seen.add(key)
-                    unique_items.append(r)
-
-            prices = [Decimal(r["price"]) for r in unique_items]
-            if not prices:
-                continue
-
-            avg_price = filtered_unique_mean(prices, trim_pct=0.3)
-
-            for r in unique_items:
-                ParsedProduct.objects.create(
-                    product=product,
-                    name=r["name"],
-                    price=Decimal(r["price"]),
-                    unit=r.get("unit"),
-                    url=r.get("url"),
-                    source='lemanapro',
-                    fetched_at=timezone.now()
-                )
-
-            if avg_price is not None:
-                product.avg_price_lemanapro = Decimal(avg_price)
-                product.save()
-
-    asyncio.run(run_scraper(list(products)))
-
-
-
+    from .models import ParserSchedule
+    parser = ParserSchedule.objects.get(pk=parser_id)
+    product_ids = list(parser.products.values_list('id', flat=True))
+    parse_products_batch_task(product_ids)
+    parser.last_run = timezone.now()
+    parser.save()
 
 # @shared_task(bind=True)
 # def parse_product_task(self, product_id):

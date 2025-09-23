@@ -1,93 +1,114 @@
-import json
+import os
+import time
 from decimal import Decimal
 from urllib.parse import quote
-from playwright.async_api import async_playwright
+
+import undetected_chromedriver as uc
 from price_parser.utils.price_utils import filtered_unique_mean
+from price_parser.models import ParsedProduct
 
-async def search_lemanapro_products(product_name: str, page=None):
-    """
-    Парсит один товар.
-    Если передан page, будет использовать его вместо создания нового.
-    Возвращает: {"products": [{"name":..., "price":..., "unit":..., "url":...}], "avg_price": ...}
-    """
-    own_browser = False
-    if page is None:
-        own_browser = True
-        playwright = await async_playwright().start()
-        browser = await playwright.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
+PARSED_DIR = "parsed_products"
+os.makedirs(PARSED_DIR, exist_ok=True)
 
-    try:
-        query = quote(product_name)
-        url = f"https://lemanapro.ru/search/?q={query}"
-        await page.goto(url, timeout=60000)
-        await page.wait_for_selector('[data-qa="product-name"]', timeout=10000)
+from urllib.parse import quote
+from decimal import Decimal
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
+from price_parser.models import ParsedProduct
 
-        product_cards = await page.query_selector_all('[data-qa="product-name"]')
-        products = []
+class LemanaProScraper:
+    BASE_URL = "https://lemanapro.ru/search/?q="
 
-        for card in product_cards[:10]:  # только первые 10
-            name = await (await card.query_selector("span")).inner_text()
-            href = await card.get_attribute("href")
-            full_url = f"https://lemanapro.ru{href}" if href else None
+    def __init__(self, headless=True):
+        import undetected_chromedriver as uc
+        options = uc.ChromeOptions()
+        options.headless = headless
+        options.add_argument("--no-sandbox")
+        options.add_argument("--disable-gpu")
+        options.add_argument("--disable-dev-shm-usage")
+        options.add_argument("window-size=1920,1080")
+        options.add_argument("--remote-debugging-port=9222")
 
-            # Переходим на страницу товара для точной цены
-            price = None
-            unit = None
-            if full_url:
-                if own_browser:
-                    new_page = await context.new_page()
-                else:
-                    new_page = page  # используем переданную страницу для batch
-                await new_page.goto(full_url, timeout=60000)
-                await new_page.wait_for_selector('[data-qa="price-view"]', timeout=10000)
-                try:
-                    price_el = await new_page.query_selector('[data-qa="price-view"] span')
-                    if price_el:
-                        price_text = await price_el.inner_text()
-                        price = Decimal(price_text.replace("₽", "").replace(",", ".").strip())
-                        unit = "шт."
-                except Exception:
-                    pass
-                if own_browser:
-                    await new_page.close()
+        driver_path = r"C:\Users\rapun\PycharmProjects\Average_price_parser\chromedriver-win64\chromedriver.exe"
+        self.driver = uc.Chrome(options=options, driver_executable_path=driver_path)
 
-            if price is not None:
-                products.append({
-                    "name": name.strip(),
-                    "price": price,
-                    "unit": unit,
-                    "url": full_url
-                })
+    def close(self):
+        try:
+            self.driver.quit()
+        except Exception:
+            pass
 
-        if not products:
+    def find_matching_products(self, product_name):
+        query = ' '.join(product_name.lower().split()[:3])
+        url = self.BASE_URL + quote(query)
+        print(f"🔎 Открываем страницу поиска: {url}")
+
+        try:
+            self.driver.get(url)
+        except Exception as e:
+            print(f"❌ Не удалось открыть страницу: {e}")
             return None
 
-        avg_price = filtered_unique_mean([p["price"] for p in products], trim_pct=0.3)
+        # Ожидание подгрузки хотя бы одного продукта
+        try:
+            WebDriverWait(self.driver, 15).until(
+                EC.presence_of_element_located((By.CSS_SELECTOR, "a[data-qa='product-name']"))
+            )
+        except:
+            print("⚠️ Элементы продуктов не найдены на странице.")
+            # для дебага можно вывести весь HTML страницы
+            print(self.driver.page_source[:1000])  # первые 1000 символов
+            return None
+
+        # Скроллим страницу до конца, чтобы подгрузились все товары
+        SCROLL_PAUSE_TIME = 2
+        last_height = self.driver.execute_script("return document.body.scrollHeight")
+        while True:
+            self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(SCROLL_PAUSE_TIME)
+            new_height = self.driver.execute_script("return document.body.scrollHeight")
+            if new_height == last_height:
+                break
+            last_height = new_height
+
+        products = []
+        try:
+            title_blocks = self.driver.find_elements(By.CSS_SELECTOR, "a[data-qa='product-name']")
+            price_blocks = self.driver.find_elements(By.CSS_SELECTOR, "span[data-qa='primary-price-main']")
+            unit_blocks = self.driver.find_elements(By.CSS_SELECTOR, "span.p1yvm8ab_plp")
+
+            for i, title_block in enumerate(title_blocks):
+                try:
+                    name = title_block.text.strip()
+                    url = title_block.get_attribute("href")
+
+                    price_text = price_blocks[i].text.strip().replace("\xa0", "").replace(" ", "").replace(",", ".")
+                    price = Decimal(price_text)
+                    unit = unit_blocks[i].text.strip() if i < len(unit_blocks) else None
+
+                    products.append({"name": name, "price": price, "unit": unit, "url": url})
+                    print(f"💰 Найден продукт: {name} — {price} {unit} — {url}")
+
+                    if len(products) >= 15:
+                        break
+                except Exception as e:
+                    print(f"❌ Ошибка при обработке одного продукта: {e}")
+                    continue
+        except Exception as e:
+            print(f"❌ Ошибка при сборе блоков продуктов: {e}")
+            return None
+
+        if not products:
+            print("⚠️ Продукты не найдены после обработки блоков.")
+            return None
+
+        # Можно посчитать среднюю цену, если нужно
+        prices = [p["price"] for p in products]
+        avg_price = sum(prices) / len(prices) if prices else None
+
         return {"products": products, "avg_price": avg_price}
-    finally:
-        if own_browser:
-            await browser.close()
-            await playwright.stop()
-
-
-async def async_search_multiple_products(product_names: list[str]):
-    """
-    Парсинг нескольких продуктов за один браузер (batch).
-    """
-    results_dict = {}
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        page = await context.new_page()
-
-        for name in product_names:
-            results = await search_lemanapro_products(name, page=page)
-            results_dict[name] = results
-
-        await browser.close()
-    return results_dict
 
 
 

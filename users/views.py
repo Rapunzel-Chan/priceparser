@@ -11,10 +11,13 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.decorators.csrf import csrf_protect
 from django.views.generic import CreateView, DetailView, UpdateView
+from rest_framework.generics import CreateAPIView, RetrieveUpdateAPIView
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 from config.settings import EMAIL_HOST_USER
 from users.forms import UserProfileForm, UserRegisterForm
 from users.models import User
+from users.serializers import UserSerializer, UserPrivateSerializer, UserPublicSerializer
 
 
 @csrf_protect

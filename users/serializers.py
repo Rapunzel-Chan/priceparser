@@ -12,7 +12,7 @@ class UserSerializer(ModelSerializer):
 class UserPublicSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "avatar", "town"]
+        fields = ["id", "email", "avatar", "country"]
 
 
 class UserPrivateSerializer(serializers.ModelSerializer):

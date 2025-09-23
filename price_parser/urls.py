@@ -32,12 +32,12 @@ urlpatterns = [
     # --- Выбор товаров (новая страница) ---
     path('selected/', views.ProductSelectView.as_view(), name='add_or_select_products'),
     path('selected/action/', views.ProductSelectActionView.as_view(), name='selected_action'),
-
+    path('parsing_status/', views.ParsingStatusView.as_view(), name='parsing_status'),
     # --- Добавление новых товаров ---
     # path('add/', views.AddProductsView.as_view(), name='add_products'),
 
     # --- AJAX: товары по категории ---
-    path('products_by_category/', views.ProductsByCategoryView.as_view(), name='products_by_category'),
+    # path('products_by_category/', views.ProductsByCategoryView.as_view(), name='products_by_category'),
 
     # --- AJAX: парсинг одного товара ---
     # path('parse_product/', views.ParseProductView.as_view(), name='parse_product'),
