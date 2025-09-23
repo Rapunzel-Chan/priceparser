@@ -105,45 +105,34 @@ import asyncio
 # Парсинг всех выбранных
 # ============================
 
-# price_parser/views.py
-from decimal import Decimal
 from django.views import View
 from django.http import JsonResponse
-from price_parser.models import ParsedProduct
-from price_parser.utils.price_utils import filtered_unique_mean
-from price_parser.services.lemana_parse import LemanaProScraper
+from price_parser.services.lemana_service import lemana_parse_saved
 
 class ParseProductView(View):
     """
-    Синхронный поиск одного продукта через LemanaPro.
+    Синхронный парсинг одного продукта через LemanaPro.
+    Сохраняет ParsedProduct, ParsedProductArchive и обновляет Product.
     """
     def post(self, request):
         import json
         data = json.loads(request.body)
         product_name = data.get("name")
+
         if not product_name:
             return JsonResponse({"error": "Нет названия"}, status=400)
 
-        scraper = LemanaProScraper(headless=True)
-        try:
-            result = scraper.find_matching_products(product_name)
-            if not result:
-                return JsonResponse({"error": "Товар не найден"}, status=404)
+        # Вызываем функцию, которая делает весь парсинг и сохранение
+        avg_price_per_unit = lemana_parse_saved(product_name)
 
-            # сохраняем в базу ParsedProduct
-            for p in result["products"]:
-                ParsedProduct.objects.create(
-                    name=p["name"],
-                    price=p["price"],
-                    unit=p["unit"],
-                    url=p["url"],
-                    source="lemanapro"
-                )
+        if avg_price_per_unit is None:
+            return JsonResponse({"error": "Товар не найден"}, status=404)
 
-            return JsonResponse({"avg_price_pack": float(result["avg_price"])})
+        return JsonResponse({
+            "message": f"Продукт '{product_name}' успешно пропарсен",
+            "avg_price_per_unit": float(avg_price_per_unit)
+        })
 
-        finally:
-            scraper.close()
 
 
 
@@ -208,33 +197,33 @@ class ProductDetailView(DetailView):
 # Экспорт выбранных товаров в Excel
 # ============================
 
-class ExportExcelView(View):
-    def post(self, request):
-        ids = request.POST.getlist('ids[]')
-        wb = openpyxl.Workbook()
-        ws = wb.active
-        ws.title = "Товары"
-        ws.append(["№", "Наименование", "Ед. изм.", "Цена за ед.", "Цена за упаковку", "Кол-во в упаковке"])
-        products = Product.objects.filter(id__in=ids)
-        for idx, product in enumerate(products, 1):
-            pack_size = product.pack_size or Decimal('1')
-            price_pack = product.avg_price_lemanapro or Decimal('0')
-            try:
-                price_per_unit = (price_pack / Decimal(pack_size)).quantize(Decimal('0.01'))
-            except Exception:
-                price_per_unit = price_pack
-            ws.append([
-                idx, clean_product_name(product.name),
-                product.unit or "шт.",
-                float(price_per_unit),
-                float(price_pack),
-                float(pack_size),
-            ])
-
-        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        # response['Content-Disposition'] = 'attachment; filename=selected_products.xlsx'
-        wb.save(response)
-        return response
+# class ExportExcelView(View):
+#     def post(self, request):
+#         ids = request.POST.getlist('ids[]')
+#         wb = openpyxl.Workbook()
+#         ws = wb.active
+#         ws.title = "Товары"
+#         ws.append(["№", "Наименование", "Ед. изм.", "Цена за ед.", "Цена за упаковку", "Кол-во в упаковке"])
+#         products = Product.objects.filter(id__in=ids)
+#         for idx, product in enumerate(products, 1):
+#             pack_size = product.pack_size or Decimal('1')
+#             price_pack = product.avg_price_lemanapro or Decimal('0')
+#             try:
+#                 price_per_unit = (price_pack / Decimal(pack_size)).quantize(Decimal('0.01'))
+#             except Exception:
+#                 price_per_unit = price_pack
+#             ws.append([
+#                 idx, clean_product_name(product.name),
+#                 product.unit or "шт.",
+#                 float(price_per_unit),
+#                 float(price_pack),
+#                 float(pack_size),
+#             ])
+#
+#         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+#         # response['Content-Disposition'] = 'attachment; filename=selected_products.xlsx'
+#         wb.save(response)
+#         return response
 
 
 from django.views.generic import TemplateView
@@ -479,147 +468,171 @@ class ParsingStatusView(View):
 # Результаты парсинга
 # ============================
 
+from django.views import View
+from django.shortcuts import render
+from django.utils import timezone
+from django.http import HttpResponse
+from openpyxl import Workbook
+from price_parser.models import Product, ParsedProduct
+
+
+from django.shortcuts import render
+from django.views import View
+from django.http import HttpResponse
+from openpyxl import Workbook
+from django.utils import timezone
+from .models import Product
+
+from django.views import View
+from django.shortcuts import render
+from django.utils import timezone
+from price_parser.models import Product
+from price_parser.utils.price_utils import filtered_unique_mean, extract_unit_and_pack
+
 class ResultsView(View):
-    template_name = 'price_parser/show_selected_products.html'
+    """
+    Отображение результатов парсинга — все продукты с ParsedProduct.
+    """
+    template_name = "price_parser/show_selected_products.html"
 
-    def get(self, request, *args, **kwargs):
-        selected_ids = [int(i) for i in request.session.get('selected_products_ids', [])]
-        selected_products = Product.objects.filter(id__in=selected_ids)
-
+    def get(self, request):
+        products = Product.objects.filter(parsed_products__isnull=False).distinct().order_by("name")
         table_data = []
 
-        for product in selected_products:
-            parsed_items = ParsedProduct.objects.filter(
-                product=product
-            ).order_by('-fetched_at')
+        for prod in products:
+            last_parsed = prod.parsed_products.order_by("-fetched_at").first()
 
-            if not parsed_items.exists():
-                continue
-
-            prices = [p.price for p in parsed_items]
-            avg_price_pack = filtered_unique_mean(prices)
-
-            unit, pack_size = extract_unit_and_pack(product.name)
-            if not unit:
-                unit = "шт."
-
-            try:
-                price_per_unit = (avg_price_pack / pack_size).quantize(Decimal('0.01'))
-            except Exception:
-                price_per_unit = avg_price_pack
-
-            source = parsed_items.first().source
-            fetched_at = parsed_items.first().fetched_at
+            # Берём данные из ParsedProduct, если есть, иначе fallback на Product
+            pack_size = last_parsed.pack_size or prod.pack_size or 1
+            unit = last_parsed.unit or prod.unit or "шт."
+            avg_price_pack = filtered_unique_mean(prod.parsed_products.values_list("price", flat=True)) or 0
+            price_per_unit = (avg_price_pack / pack_size) if pack_size else avg_price_pack
+            source = last_parsed.source if last_parsed else prod.source
+            fetched_at = last_parsed.fetched_at if last_parsed else timezone.now()
+            url = last_parsed.url if last_parsed else ""
 
             table_data.append({
-                "product_name": clean_product_name(product.name),
-                "unit": unit,
+                "product_id": prod.id,
+                "product_name": prod.name,
                 "pack_size": pack_size,
+                "unit": unit,
                 "avg_price_pack": avg_price_pack,
                 "price_per_unit": price_per_unit,
                 "source": source,
                 "fetched_at": fetched_at,
+                "url": url,
             })
 
-        context = {
-            "selected_products": selected_products,
-            "table_data": table_data,
-        }
-        return render(request, self.template_name, context)
+        return render(request, self.template_name, {"table_data": table_data})
 
 
+
+
+from django.views import View
+from django.http import HttpResponse
+from openpyxl import Workbook
+from django.utils import timezone
+from price_parser.models import Product
+from price_parser.utils.price_utils import filtered_unique_mean, extract_unit_and_pack
 
 class ExportSummaryExcelView(View):
-    """Сводный отчёт"""
+    """
+    Сводный отчет — агрегировано по Product.
+    """
     def post(self, request):
-        selected_ids = [int(i) for i in request.POST.getlist('ids[]')]
-        selected_products = Product.objects.filter(id__in=selected_ids)
+        ids = request.POST.getlist("ids[]")
+        products = Product.objects.filter(id__in=ids)
 
-        wb = openpyxl.Workbook()
+        wb = Workbook()
         ws = wb.active
         ws.title = "Сводный отчет"
         ws.append([
-            "№", "Наименование", "Фасовка", "Ед. изм.",
-            "Средняя цена, ₽", "Цена за ед., ₽", "Источник", "Дата парсинга"
+            "Наименование", "Фасовка", "Ед. изм.",
+            "Средняя цена, ₽", "Цена за ед., ₽",
+            "Источник", "Дата парсинга", "URL"
         ])
 
-        for idx, product in enumerate(selected_products, 1):
-            parsed_items = ParsedProduct.objects.filter(product=product).order_by('-fetched_at')
-            if not parsed_items.exists():
-                continue
+        for prod in products:
+            last_parsed = prod.parsed_products.order_by("-fetched_at").first()
 
-            prices = [p.price for p in parsed_items]
-            avg_price_pack = filtered_unique_mean(prices)
-            unit, pack_size = extract_unit_and_pack(product.name)
-            if not unit:
-                unit = "шт."
-            try:
-                price_per_unit = (avg_price_pack / pack_size).quantize(Decimal('0.01'))
-            except Exception:
-                price_per_unit = avg_price_pack
-
-            source = parsed_items.first().source
-            fetched_at = parsed_items.first().fetched_at
+            pack_size = last_parsed.pack_size or prod.pack_size or 1
+            unit = last_parsed.unit or prod.unit or "шт."
+            avg_price_pack = filtered_unique_mean(prod.parsed_products.values_list("price", flat=True)) or 0
+            price_per_unit = (avg_price_pack / pack_size) if pack_size else avg_price_pack
+            source = last_parsed.source if last_parsed else prod.source
+            fetched_at = last_parsed.fetched_at if last_parsed else timezone.now()
+            if timezone.is_aware(fetched_at):
+                fetched_at_naive = timezone.make_naive(fetched_at)
+            url = last_parsed.url if last_parsed else ""
 
             ws.append([
-                idx,
-                clean_product_name(product.name),
+                prod.name,
                 pack_size,
                 unit,
                 float(avg_price_pack),
                 float(price_per_unit),
                 source,
-                fetched_at.strftime("%Y-%m-%d %H:%M"),
+                fetched_at_naive,
+                url
             ])
 
         response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        response['Content-Disposition'] = 'attachment; filename=summary_report.xlsx'
+        response['Content-Disposition'] = 'attachment; filename=summary.xlsx'
         wb.save(response)
         return response
 
 
-class ExportDetailedExcelView(View):
-    """Детальный отчёт"""
-    def post(self, request):
-        selected_ids = [int(i) for i in request.POST.getlist('ids[]')]
-        parsed_products = ParsedProduct.objects.filter(product__id__in=selected_ids).order_by('product__name')
+from django.views import View
+from django.http import HttpResponse
+from openpyxl import Workbook
+from price_parser.models import ParsedProduct
+from price_parser.utils.price_utils import extract_unit_and_pack
 
-        wb = openpyxl.Workbook()
+class ExportDetailedExcelView(View):
+    """
+    Детальный отчет — все ParsedProduct для выбранных Product.
+    """
+    def post(self, request):
+        ids = request.POST.getlist("ids[]")
+        parsed_products = ParsedProduct.objects.filter(product_id__in=ids).order_by("name")
+
+        wb = Workbook()
         ws = wb.active
         ws.title = "Детальный отчет"
         ws.append([
-            "№", "Наименование", "Цена", "Фасовка",
-            "Ед. изм.", "Источник", "Дата парсинга", "URL"
+            "Наименование", "Фасовка", "Ед. изм.", "Цена за ед., ₽",
+            "Цена за упаковку", "URL", "Источник", "Дата парсинга"
         ])
 
-        for idx, p in enumerate(parsed_products, 1):
-            unit, pack_size = extract_unit_and_pack(p.name)
-            if not unit:
-                unit = p.unit or "шт."
-            try:
-                price_per_unit = (p.price / pack_size).quantize(Decimal('0.01'))
-            except Exception:
-                price_per_unit = p.price
-
+        for pp in parsed_products:
+            pack_size = pp.pack_size or 1
+            unit = pp.unit or "шт."
+            price_per_unit = (pp.price / pack_size) if pp.price else 0
+            price_pack = pp.price or 0
+            fetched_at_naive = pp.fetched_at
+            if timezone.is_aware(fetched_at_naive):
+                fetched_at_naive = timezone.make_naive(fetched_at_naive)
             ws.append([
-                idx,
-                clean_product_name(p.name),
-                float(p.price),
+                pp.name,
                 pack_size,
                 unit,
-                p.source,
-                p.fetched_at.strftime("%Y-%m-%d %H:%M"),
-                p.url
+                float(price_per_unit),
+                float(price_pack),
+                pp.url or "",
+                pp.source,
+                fetched_at_naive
             ])
 
         response = HttpResponse(
-            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
-        response['Content-Disposition'] = 'attachment; filename=detailed_report.xlsx'
+        response['Content-Disposition'] = 'attachment; filename=detailed.xlsx'
         wb.save(response)
         return response
+
+
 
 
 class ProductListView(ListView):

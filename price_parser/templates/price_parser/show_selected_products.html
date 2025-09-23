@@ -6,49 +6,51 @@
     <h4 class="fw-bold py-3 mb-4">Результаты парсинга</h4>
 
     {% if table_data %}
-    <table class="table table-bordered table-striped">
-        <thead>
-        <tr>
-            <th>#</th>
-            <th>Наименование товара</th>
-            <th>Фасовка</th>
-            <th>Ед. изм.</th>
-            <th>Средняя цена, ₽</th>
-            <th>Цена за ед., ₽</th>
-            <th>Источник</th>
-            <th>Дата парсинга</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for row in table_data %}
-        <tr>
-            <td>{{ forloop.counter }}</td>
-            <td>{{ row.product_name }}</td>
-            <td>{{ row.pack_size }}</td>
-            <td>{{ row.unit }}</td>
-            <td>{{ row.avg_price_pack }}</td>
-            <td>{{ row.price_per_unit }}</td>
-            <td>{{ row.source }}</td>
-            <td>{{ row.fetched_at|date:"Y-m-d H:i" }}</td>
-        </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead>
+                <tr>
+                    <th>Наименование</th>
+                    <th>Фасовка</th>
+                    <th>Ед. изм.</th>
+                    <th>Средняя цена, ₽</th>
+                    <th>Цена за ед., ₽</th>
+                    <th>Источник</th>
+                    <th>Дата парсинга</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in table_data %}
+                <tr>
+                    <td>{{ row.product_name }}</td>
+                    <td>{{ row.pack_size }}</td>
+                    <td>{{ row.unit }}</td>
+                    <td>{{ row.avg_price_pack|floatformat:2 }}</td>
+                    <td>{{ row.price_per_unit|floatformat:2 }}</td>
+                    <td>{{ row.source }}</td>
+                    <td>{{ row.fetched_at|date:"Y-m-d H:i" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 
-    <form method="post" action="{% url 'price_parser:export_summary_excel' %}" target="_blank">
+    <!-- Сводный Excel -->
+    <form method="post" action="{% url 'price_parser:export_summary_excel' %}" target="_blank" class="mb-2">
         {% csrf_token %}
-        {% for p in selected_products %}
-        <input type="hidden" name="ids[]" value="{{ p.id }}">
+        {% for row in table_data %}
+        <input type="hidden" name="ids[]" value="{{ row.product_id }}">
         {% endfor %}
-        <button class="btn btn-success mb-2">Выгрузить сводный отчет</button>
+        <button class="btn btn-success">Выгрузить сводный отчет</button>
     </form>
 
-    <form method="post" action="{% url 'price_parser:export_detailed_excel' %}" target="_blank">
+    <!-- Детальный Excel -->
+    <form method="post" action="{% url 'price_parser:export_detailed_excel' %}" target="_blank" class="mb-2">
         {% csrf_token %}
-        {% for p in selected_products %}
-        <input type="hidden" name="ids[]" value="{{ p.id }}">
+        {% for row in table_data %}
+        <input type="hidden" name="ids[]" value="{{ row.product_id }}">
         {% endfor %}
-        <button class="btn btn-primary mb-2">Выгрузить детальный отчет</button>
+        <button class="btn btn-primary">Выгрузить детальный отчет</button>
     </form>
 
     {% else %}

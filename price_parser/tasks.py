@@ -5,6 +5,53 @@ from .services.lemana_parse import LemanaProScraper
 import logging
 
 logger = logging.getLogger(__name__)
+import logging
+from celery import shared_task
+from price_parser.services.lemana_service import lemana_parse_saved
+from price_parser.models import Product
+
+
+
+# @shared_task(bind=True)
+# def parse_products_batch_task(self, product_ids):
+#     """
+#     Парсинг нескольких продуктов по ID через lemana_parse_saved.
+#     Логирование каждого шага для контроля.
+#     """
+#     logger.info(f"🔹 Запуск парсинга продуктов: {product_ids}")
+#     print(f"🔹 Запуск парсинга продуктов: {product_ids}")
+#
+#     total_parsed = 0
+#
+#     for pid in product_ids:
+#         prod = Product.objects.filter(id=pid).first()
+#         if not prod:
+#             logger.warning(f"❌ Продукт с id={pid} не найден")
+#             print(f"❌ Продукт с id={pid} не найден")
+#             continue
+#
+#         logger.info(f"🔎 Парсер обрабатывает продукт: {prod.name}")
+#         print(f"🔎 Парсер обрабатывает продукт: {prod.name}")
+#
+#         try:
+#             avg_price = lemana_parse_saved(prod.name)
+#             if avg_price is not None:
+#                 logger.info(f"💰 Пропарсено: {prod.name} — средняя цена: {avg_price}")
+#                 print(f"💰 Пропарсено: {prod.name} — средняя цена: {avg_price}")
+#                 total_parsed += 1
+#             else:
+#                 logger.info(f"⚠️ Продукт {prod.name} не найден на сайте или нет цен")
+#                 print(f"⚠️ Продукт {prod.name} не найден на сайте или нет цен")
+#         except Exception as e:
+#             logger.error(f"❌ Ошибка парсинга {prod.name}: {e}")
+#             print(f"❌ Ошибка парсинга {prod.name}: {e}")
+#             continue
+#
+#     logger.info(f"✅ Все продукты обработаны. Всего спарсено: {total_parsed}")
+#     print(f"✅ Все продукты обработаны. Всего спарсено: {total_parsed}")
+#
+#     return f"Парсинг завершён для {total_parsed} товаров"
+
 
 @shared_task(bind=True)
 def parse_products_batch_task(self, product_ids):
