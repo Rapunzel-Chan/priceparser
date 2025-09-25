@@ -16,7 +16,7 @@
 
 <script>
 const labels = [{% for p in prices %}'{{ p.fetched_at|date:"Y-m-d" }}',{% endfor %}];
-const data = [{% for p in prices %}{{ p.price }},{% endfor %}];
+const data = [{% for p in prices %} {{ p.fetched_at }} - {{ p.price }},{% endfor %}];
 new Chart(document.getElementById('priceChart'), {
   type: 'line',
   data: {

@@ -22,10 +22,12 @@ from users.serializers import UserSerializer, UserPrivateSerializer, UserPublicS
 
 @csrf_protect
 def logout_view(request):
-    if request.method == "POST":
-        logout(request)
-        return redirect("users:logout_done")
-    return redirect("price_parser:products_list")
+    logout(request)
+    return redirect("users:logout_done")
+    # if request.method == "POST":
+    #     logout(request)
+    #     return redirect("users:logout_done")
+    # return redirect("price_parser:index1")
 
 
 class UserCreateView(CreateView):
@@ -100,3 +102,10 @@ class UserProfileAPIView(RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return User.objects.all()
+
+# class UserProductsAPIView(ListAPIView):
+#     serializer_class = ProductSerializer
+#     permission_classes = [IsAuthenticated]
+#
+#     def get_queryset(self):
+#         return Product.objects.filter(owner=self.request.user)

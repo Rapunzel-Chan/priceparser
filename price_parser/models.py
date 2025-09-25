@@ -37,7 +37,7 @@ class Product(models.Model):
 
     name = models.CharField(max_length=255)
     price = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
-    source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='leroy_merlen')
+    source = models.CharField(max_length=50, choices=SOURCE_CHOICES, default='lemanapro')
     created_at = models.DateTimeField(auto_now_add=True, null=True, blank=True)
     category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True)
     # subcategory = models.ForeignKey(SubCategory, on_delete=models.SET_NULL, null=True, blank=True)
@@ -49,6 +49,12 @@ class Product(models.Model):
     pack_size = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     popularity = models.IntegerField(default=0)
     parsing_done = models.BooleanField(default=False)
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='products'
+    )
 
     class Meta:
         indexes = [models.Index(fields=['name'])]
@@ -73,7 +79,12 @@ class ParsedProduct(models.Model):
     url = models.URLField(max_length=500, null=True, blank=True)
     source = models.CharField(max_length=100, default='lemanapro')
     fetched_at = models.DateTimeField(auto_now_add=True)
-
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='parsed_products'
+    )
     class Meta:
         indexes = [models.Index(fields=['name'])]
 
@@ -86,7 +97,12 @@ class ParsedProductArchive(models.Model):
     url = models.URLField(blank=True, null=True)
     source = models.CharField(max_length=50, default='lemanapro')
     fetched_at = models.DateTimeField(auto_now_add=True)
-
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        null=True, blank=True,
+        related_name='parsed_products_archieve'
+    )
     class Meta:
         indexes = [models.Index(fields=['name'])]
 
@@ -111,27 +127,57 @@ class ParserSchedule(models.Model):
         default='Lemana Pro'
     )
     name = models.CharField(max_length=255, verbose_name="Название парсера")
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     last_run = models.DateTimeField(null=True, blank=True)
     manual = models.BooleanField(default=False)
     interval = models.CharField(max_length=50, default="6h")
     is_active = models.BooleanField(default=True)
     products = models.ManyToManyField('Product', blank=True, related_name='parsers')
 
+
+
+    def _parse_interval(self):
+        """
+        Возвращает (every:int, period:str) для django_celery_beat IntervalSchedule
+        INPUT examples: '6h', '30m', '1d', '15' (тогда считаем минуты)
+        """
+        s = (self.interval or "").strip().lower()
+        if not s:
+            return 6, "hours"
+
+        import re
+        m = re.match(r'(\d+)\s*([smhd])?', s)
+        if not m:
+            # fallback: если просто число — минуты
+            try:
+                return int(s), "minutes"
+            except Exception:
+                return 6, "hours"
+
+        val = int(m.group(1))
+        unit = m.group(2) or "m"
+        mapping = {"s": "seconds", "m": "minutes", "h": "hours", "d": "days"}
+        return val, mapping.get(unit, "minutes")
+
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         # Создаём/обновляем PeriodicTask для всех продуктов парсера
-        product_ids = list(self.products.values_list('id', flat=True))
-        if product_ids:
-            schedule, _ = IntervalSchedule.objects.get_or_create(every=self.interval, period='minutes')
+        # product_ids = list(self.products.values_list('id', flat=True))
+        if not self.manual and self.is_active and self.products.exists():
+            every, period = self._parse_interval()
+            schedule, _ = IntervalSchedule.objects.get_or_create(every=every, period=period)
             PeriodicTask.objects.update_or_create(
                 name=f"parse_{self.pk}",
                 defaults={
-                    'interval': schedule,
-                    'task': 'price_parser.tasks.parse_parser_products',  # таск пройдётся по всем продуктам
-                    'args': json.dumps([self.pk]),  # передаем ID парсера
-                }
+                    "interval": schedule,
+                    "task": "price_parser.tasks.parse_parser_products",
+                    "args": json.dumps([self.pk]),
+                    "enabled": True
+                },
             )
+        else:
+            # если ручной или выключен или нет продуктов — удалим периодическую таску
+            PeriodicTask.objects.filter(name=f"parse_{self.pk}").delete()
 
     def __str__(self):
         return f"{self.name} ({self.platform})"

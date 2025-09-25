@@ -28,12 +28,24 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
+            <ul class="navbar-nav ms-auto align-items-center">
                 <li class="nav-item"><a class="nav-link" href="{% url 'price_parser:index1' %}">Главная</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'price_parser:products_list' %}">Каталог</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url 'price_parser:parsers' %}">Парсеры</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">Отчёты</a></li>
-                <li class="nav-item"><a class="nav-link" href="#">Настройки</a></li>
+                {% if user.is_authenticated %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'price_parser:products_list' %}">Каталог</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'price_parser:parsers' %}">Парсеры</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'price_parser:reports' %}">Отчёты</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'users:profile' %}">Профиль</a></li>
+                    <li class="nav-item">
+                        <form action="{% url 'users:logout' %}" method="post" class="d-flex align-items-center m-0 p-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-primary btn-sm ms-2" style="height: 100%;">Выход</button>
+                            <!-- Используй btn-danger вместо btn-primary для красной кнопки -->
+                        </form>
+                    </li>
+                {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url 'users:login' %}">Войти</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url 'users:register' %}">Регистрация</a></li>
+                {% endif %}
             </ul>
         </div>
     </div>
@@ -47,27 +59,28 @@
 <!-- JS Bootstrap -->
 <script src="{% static 'sneat/vendor/js/bootstrap.bundle.min.js' %}"></script>
 {% block extra_scripts %}{% endblock %}
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
 <script>
     function getCookie(name) {
-      let cookieValue = null;
-      if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-          const cookie = cookies[i].trim();
-          if (cookie.substring(0, name.length + 1) === (name + '=')) {
-            cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-            break;
-          }
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
         }
-      }
-      return cookieValue;
+        return cookieValue;
     }
+
     const csrftoken = getCookie('csrftoken');
     $.ajaxSetup({
-      beforeSend: function(xhr, settings) {
-        xhr.setRequestHeader("X-CSRFToken", csrftoken);
-      }
+        beforeSend: function(xhr, settings) {
+            xhr.setRequestHeader("X-CSRFToken", csrftoken);
+        }
     });
 </script>
 </body>

@@ -9,7 +9,6 @@
   <a href="{% url 'price_parser:add_parser' %}" class="btn btn-success mt-2">Создать новый парсер</a>
 </div>
 
-  <!-- Заголовок -->
   <h4 class="fw-bold py-3 mb-4">Популярные товары</h4>
 
   <div class="row g-3">
@@ -18,9 +17,6 @@
         <div class="card h-100">
           <div class="card-body d-flex flex-column">
             <h5 class="card-title">{{ product.name }}</h5>
-            <p class="card-text mb-1">
-              <strong>Средняя цена:</strong> {{ product.avg_price_lemanapro|default:"-" }} ₽
-            </p>
             <p class="card-text mb-2">
               <strong>Категория:</strong>
               {% if product.category %}
@@ -29,14 +25,26 @@
                 -
               {% endif %}
             </p>
-            <div class="mt-auto d-flex justify-content-between">
-              <a href="{% url 'price_parser:product_detail' product.id %}" class="btn btn-outline-primary btn-sm">
-                Подробнее
-              </a>
-              <a href="{% url 'price_parser:parsers' %}" class="btn btn-outline-success btn-sm">
-                Настройка парсера
-              </a>
-            </div>
+            {% if user.is_authenticated %}
+              <p class="card-text mb-1">
+                <strong>Средняя цена:</strong>
+                {% if product.avg_price_lemanapro %}
+                  {{ product.avg_price_lemanapro }} ₽
+                {% else %}
+                  — <!-- нет рассчитанной средней цены -->
+                {% endif %}
+              </p>
+              <div class="mt-auto d-flex justify-content-between">
+                <a href="{% url 'price_parser:product_detail' product.id %}" class="btn btn-outline-primary btn-sm">
+                  Подробнее
+                </a>
+                <a href="{% url 'price_parser:parsers' %}" class="btn btn-outline-success btn-sm">
+                  Настройка парсера
+                </a>
+              </div>
+            {% else %}
+              <p class="text-muted">Для просмотра цен войдите</p>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -47,12 +55,13 @@
     {% endfor %}
   </div>
 
-  <!-- Кнопка для запуска парсинга вручную -->
-  <div class="mt-4">
-    <a href="{% url 'price_parser:add_or_select_products' %}" class="btn btn-primary">
-      Запустить парсинг
-    </a>
-  </div>
+  {% if user.is_authenticated %}
+    <div class="mt-4">
+      <a href="{% url 'price_parser:add_or_select_products' %}" class="btn btn-primary">
+        Запустить парсинг
+      </a>
+    </div>
+  {% endif %}
 
 </div>
 {% endblock %}

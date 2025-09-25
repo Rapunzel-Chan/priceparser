@@ -59,7 +59,7 @@ urlpatterns = [
 
     path('parsers/<int:pk>/edit/', views.EditParserView.as_view(), name='edit_parser'),
     path('parsers/<int:pk>/run/', views.RunParserNowView.as_view(), name='run_parser_now'),
-    path('profile/', TemplateView.as_view(template_name='profile.html'), name='profile'),
+    # path('profile/', TemplateView.as_view(template_name='profile.html'), name='profile'),
     path('contacts/', TemplateView.as_view(template_name='contacts.html'), name='contacts'),
     # Reports
     path("reports/", views.ReportsView.as_view(), name="reports"),

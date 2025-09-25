@@ -11,8 +11,8 @@
         <div class="card mb-3">
           <div class="card-body">
             <h5 class="card-title">{{ item.product.name }}</h5>
-            <p class="card-text">Средняя (последние 30д): <strong>{{ item.new_avg|default:"—" }}</strong> ₽</p>
-            <p class="card-text">Средняя (предыдущие 30д): <strong>{{ item.prev_avg|default:"—" }}</strong> ₽</p>
+            <p class="card-text">Средняя (последние 3д): <strong>{{ item.new_avg|default:"—" }}</strong> ₽</p>
+            <p class="card-text">Средняя (предыдущие 3д): <strong>{{ item.prev_avg|default:"—" }}</strong> ₽</p>
             <p class="card-text">
               Изменение: 
               {% if item.change_pct is not None %}
