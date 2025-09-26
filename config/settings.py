@@ -122,7 +122,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC' #переделать на Мск
+TIME_ZONE = 'Europe/Moscow' #переделать на Мск
 
 USE_I18N = True
 
@@ -154,6 +154,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 
 SERVER_EMAIL = EMAIL_HOST_USER
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+SITE_URL = os.getenv("SITE_URL", "http://127.0.0.1:8000")
 
 AUTH_USER_MODEL = "users.User"
 

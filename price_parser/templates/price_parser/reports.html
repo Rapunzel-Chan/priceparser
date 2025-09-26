@@ -1,4 +1,5 @@
 {% extends "price_parser/base.html" %}
+
 {% block title %}Отчёты{% endblock %}
 
 {% block content %}
@@ -11,19 +12,18 @@
         <div class="card mb-3">
           <div class="card-body">
             <h5 class="card-title">{{ item.product.name }}</h5>
-            <p class="card-text">Средняя (последние 3д): <strong>{{ item.new_avg|default:"—" }}</strong> ₽</p>
-            <p class="card-text">Средняя (предыдущие 3д): <strong>{{ item.prev_avg|default:"—" }}</strong> ₽</p>
             <p class="card-text">
-              Изменение: 
-              {% if item.change_pct is not None %}
-                <strong>{{ item.change_pct }}%</strong>
-                {% if item.change_pct > 0 %}<span class="text-success">▲</span>{% elif item.change_pct < 0 %}<span class="text-danger">▼</span>{% endif %}
-              {% else %}
-                <em>нет данных</em>
-              {% endif %}
+              Средняя цена: <strong>{{ item.new_avg }} ₽</strong>
             </p>
-            <p class="card-text small">Популярность: {{ item.popularity }}</p>
-            <a href="{% url 'price_parser:product_detail' item.product.id %}" class="btn btn-sm btn-outline-primary">Открыть</a>
+            <p class="card-text">
+              Популярность: {{ item.popularity }}
+            </p>
+            <p class="card-text">
+              Источник: {{ item.source }}
+            </p>
+            <a href="{% url 'price_parser:product_detail' item.product.id %}" class="btn btn-sm btn-outline-primary">
+              Подробнее
+            </a>
           </div>
         </div>
       </div>

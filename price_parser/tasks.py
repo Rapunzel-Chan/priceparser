@@ -109,15 +109,23 @@ def parse_products_batch_task(self, product_ids, user_id=None):
                 logger.exception("Ошибка при уведомлении пользователя")
 
 
+from django.urls import reverse
+from urllib.parse import urlencode
+
+
+from django.conf import settings
+from django.core.mail import send_mail
+from django.urls import reverse
+
 def notify_user_parsing_done(user, products):
     product_names = ", ".join([p.name for p in products])
+    reports_url = f"{settings.SITE_URL.rstrip('/')}{reverse('price_parser:reports')}"
     send_mail(
         subject="Парсинг завершён",
-        message=f"Ваш парсинг завершён.\nТовары: {product_names}\nПосмотреть результаты: http://example.com/reports/",
+        message=f"Ваш парсинг завершён.\nТовары: {product_names}\nПосмотреть результаты: {reports_url}",
         from_email=settings.EMAIL_HOST_USER,
         recipient_list=[user.email],
     )
-
 
 @shared_task
 def parse_parser_products(parser_id: int):

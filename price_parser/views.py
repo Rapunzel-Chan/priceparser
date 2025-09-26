@@ -1,5 +1,6 @@
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db import models
 from django.utils import timezone
 from django.views import View
 from django.views.generic import TemplateView, DetailView, ListView, CreateView
@@ -109,18 +110,29 @@ from django.contrib import messages
 from .models import Product
 from .tasks import parse_products_batch_task
 
+from django.views.generic import TemplateView, DetailView
+from .models import Product, ParsedProduct
 
-class IndexView(View):
-    """Главная страница"""
+class IndexView(TemplateView):
     template_name = 'price_parser/index1.html'
 
-    def get(self, request):
-        popular_products = Product.objects.order_by('-avg_price_lemanapro')[:8]
-        parsers = ParserSchedule.objects.filter(is_active=True)
-        return render(request, self.template_name, {
-            'popular_products': popular_products,
-            'parsers': parsers
-        })
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Популярные товары (без фильтра is_active)
+        context['popular_products'] = Product.objects.order_by('-popularity').select_related('category')[:8]
+        return context
+
+# class IndexView(View):
+#     """Главная страница"""
+#     template_name = 'price_parser/index1.html'
+#
+#     def get(self, request):
+#         popular_products = Product.objects.order_by('-avg_price_lemanapro')[:8]
+#         parsers = ParserSchedule.objects.filter(is_active=True)
+#         return render(request, self.template_name, {
+#             'popular_products': popular_products,
+#             'parsers': parsers
+#         })
 
     # def post(self, request):
     #     platform = request.POST.get('platform')
@@ -130,19 +142,65 @@ class IndexView(View):
     #     messages.success(request, "Настройки сохранены")
     #     return redirect('price_parser:index1')
 
+from decimal import Decimal
+from django.views.generic import ListView, View, DetailView
+from django.shortcuts import render
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils import timezone
+
+from price_parser.models import Product, ParsedProduct
+from price_parser.utils.price_utils import filtered_unique_mean
+
 
 class ProductListView(LoginRequiredMixin, ListView):
-    """Список продуктов(каталог)"""
+    """Список продуктов (каталог)"""
     model = Product
     template_name = 'price_parser/products_list.html'
     context_object_name = 'products'
     ordering = ['-avg_price_lemanapro']
 
     def get_queryset(self):
+        qs = Product.objects.all() if self.request.user.is_superuser else Product.objects.filter(owner=self.request.user)
+        return qs.order_by('-avg_price_lemanapro')
 
-        if self.request.user.is_superuser:
-            return Product.objects.all().order_by('-avg_price_lemanapro')
-        return Product.objects.filter(owner=self.request.user).order_by('-avg_price_lemanapro')
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        products_info = []
+
+        for prod in context['products']:
+            last_parsed = prod.parsed_products.order_by("-fetched_at").first()
+            if not last_parsed:
+                continue
+
+            pack_size = last_parsed.pack_size or Decimal(1)
+            unit = last_parsed.unit or "шт."
+            all_prices = prod.parsed_products.values_list("price", flat=True)
+            avg_price_pack = filtered_unique_mean([p for p in all_prices if p is not None]) or 0
+            price_per_unit = avg_price_pack / pack_size if pack_size else avg_price_pack
+
+            products_info.append({
+                "product": prod,
+                "pack_size": pack_size,
+                "unit": unit,
+                "avg_price_pack": avg_price_pack,
+                "price_per_unit": price_per_unit,
+                "last_fetched": last_parsed.fetched_at,
+            })
+
+        context['products_info'] = products_info
+        return context
+# class ProductListView(LoginRequiredMixin, ListView):
+#     """Список продуктов(каталог)"""
+#     model = Product
+#     template_name = 'price_parser/products_list.html'
+#     context_object_name = 'products'
+#     ordering = ['-avg_price_lemanapro']
+#
+#     def get_queryset(self):
+#
+#         if self.request.user.is_superuser:
+#             return Product.objects.all().order_by('-avg_price_lemanapro')
+#         return Product.objects.filter(owner=self.request.user).order_by('-avg_price_lemanapro')
         # if self.request.user.is_superuser:
         #     return Product.objects.all()
         # return Product.objects.filter(owner=self.request.user)
@@ -150,24 +208,62 @@ class ProductListView(LoginRequiredMixin, ListView):
     # def get_queryset(self):
     #     qs = Product.objects.all() if self.request.user.is_superuser else Product.objects.filter(owner=self.request.user)
     #     return qs.order_by('-avg_price_lemanapro')
+from django.db.models import Avg
+from django.db.models.functions import TruncDate
 
-class ProductDetailView(LoginRequiredMixin, DetailView):
-    """Детальная карточка товара"""
+from django.db.models import F, DecimalField, ExpressionWrapper
+from decimal import Decimal
+from django.views.generic import ListView, View, DetailView, TemplateView
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils import timezone
+from django.db.models import F, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce, TruncDate
+from django.db.models import Avg
+
+from price_parser.models import Product, ParsedProduct
+from price_parser.utils.price_utils import filtered_unique_mean
+
+
+class ProductDetailView(DetailView):
     model = Product
-    template_name = 'price_parser/product_detail.html'
-    context_object_name = 'product'
+    template_name = "price_parser/product_detail.html"
+    context_object_name = "product"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['prices'] = ParsedProduct.objects.filter(product=self.object).order_by('fetched_at').values(
-            'fetched_at', 'price', 'pack_size', 'unit'
-        )
+        product = self.object
+        last_parsed = product.parsed_products.order_by("-fetched_at").first()
+        context["last_parsed"] = last_parsed
+
+        # График: одна точка — средняя цена
+        if last_parsed:
+            context["labels"] = [last_parsed.fetched_at.strftime("%Y-%m-%d")]
+            context["data"] = [float(product.avg_price_lemanapro or 0)]
+        else:
+            context["labels"] = []
+            context["data"] = []
+
         return context
 
-    def get_queryset(self):
-        if self.request.user.is_superuser:
-            return Product.objects.all()
-        return Product.objects.filter(owner=self.request.user)
+
+# class ProductDetailView(LoginRequiredMixin, DetailView):
+#     """Детальная карточка товара"""
+#     model = Product
+#     template_name = 'price_parser/product_detail.html'
+#     context_object_name = 'product'
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         context['prices'] = ParsedProduct.objects.filter(product=self.object).order_by('fetched_at').values(
+#             'fetched_at', 'price', 'pack_size', 'unit'
+#         )
+#         return context
+#
+#     def get_queryset(self):
+#         if self.request.user.is_superuser:
+#             return Product.objects.all()
+#         return Product.objects.filter(owner=self.request.user)
 
 
 class CategoryListView(ListView):
@@ -364,7 +460,7 @@ class EditParserView(LoginRequiredMixin, View):
         if parser.owner != request.user:
             raise Http404("Нет доступа к этому парсеру")
         form = ParserScheduleForm(instance=parser)
-        return render(request, 'parser_form.html', {'form': form, 'title': 'Редактировать парсер'})
+        return render(request, 'price_parser/parser_form.html', {'form': form, 'title': 'Редактировать парсер'})
 
     def post(self, request, pk):
         parser = get_object_or_404(ParserSchedule, pk=pk)
@@ -393,15 +489,11 @@ class RunParserNowView(LoginRequiredMixin, View):
         messages.success(request, f"Парсер '{parser.name}' запущен")
         return redirect('price_parser:parsers')
 
-
 class ResultsView(LoginRequiredMixin, View):
-    """
-    Отображение результатов парсинга — только выбранные продукты.
-    """
+    """Отображение результатов парсинга — только выбранные продукты"""
     template_name = "price_parser/show_selected_products.html"
 
     def get(self, request):
-        # Берём только выбранные продукты из сессии
         selected_ids = request.session.get('selected_products_ids', [])
         products = Product.objects.filter(id__in=selected_ids)
         table_data = []
@@ -409,18 +501,13 @@ class ResultsView(LoginRequiredMixin, View):
         for prod in products:
             last_parsed = prod.parsed_products.order_by("-fetched_at").first()
             if not last_parsed:
-                continue  # если ещё нет пропарсенного товара, пропускаем
+                continue
 
-            pack_size = last_parsed.pack_size or prod.pack_size or 1
-            unit = last_parsed.unit or prod.unit or "шт."
+            pack_size = last_parsed.pack_size or Decimal(1)
+            unit = last_parsed.unit or "шт."
             all_prices = prod.parsed_products.values_list("price", flat=True)
             avg_price_pack = filtered_unique_mean([p for p in all_prices if p is not None]) or 0
             price_per_unit = avg_price_pack / pack_size if pack_size else avg_price_pack
-            source = last_parsed.source
-            fetched_at = last_parsed.fetched_at
-            if timezone.is_aware(fetched_at):
-                fetched_at = timezone.make_naive(fetched_at)
-            url = last_parsed.url
 
             table_data.append({
                 "product_id": prod.id,
@@ -430,11 +517,52 @@ class ResultsView(LoginRequiredMixin, View):
                 "avg_price_pack": avg_price_pack,
                 "price_per_unit": price_per_unit,
                 "source": last_parsed.source,
-                "fetched_at": fetched_at,
+                "fetched_at": last_parsed.fetched_at,
                 "url": last_parsed.url,
             })
 
-            return render(request, self.template_name, {"table_data": table_data})
+        return render(request, self.template_name, {"table_data": table_data})
+# class ResultsView(LoginRequiredMixin, View):
+#     """
+#     Отображение результатов парсинга — только выбранные продукты.
+#     """
+#     template_name = "price_parser/show_selected_products.html"
+#
+#     def get(self, request):
+#         # Берём только выбранные продукты из сессии
+#         selected_ids = request.session.get('selected_products_ids', [])
+#         products = Product.objects.filter(id__in=selected_ids)
+#         table_data = []
+#
+#         for prod in products:
+#             last_parsed = prod.parsed_products.order_by("-fetched_at").first()
+#             if not last_parsed:
+#                 continue  # если ещё нет пропарсенного товара, пропускаем
+#
+#             pack_size = last_parsed.pack_size or prod.pack_size or 1
+#             unit = last_parsed.unit or prod.unit or "шт."
+#             all_prices = prod.parsed_products.values_list("price", flat=True)
+#             avg_price_pack = filtered_unique_mean([p for p in all_prices if p is not None]) or 0
+#             price_per_unit = avg_price_pack / pack_size if pack_size else avg_price_pack
+#             source = last_parsed.source
+#             fetched_at = last_parsed.fetched_at
+#             if timezone.is_aware(fetched_at):
+#                 fetched_at = timezone.make_naive(fetched_at)
+#             url = last_parsed.url
+#
+#             table_data.append({
+#                 "product_id": prod.id,
+#                 "product_name": prod.name,
+#                 "pack_size": pack_size,
+#                 "unit": unit,
+#                 "avg_price_pack": avg_price_pack,
+#                 "price_per_unit": price_per_unit,
+#                 "source": last_parsed.source,
+#                 "fetched_at": fetched_at,
+#                 "url": last_parsed.url,
+#             })
+#
+#             return render(request, self.template_name, {"table_data": table_data})
 
 
 class ExportSummaryExcelView(LoginRequiredMixin, View):
@@ -528,42 +656,69 @@ class ExportDetailedExcelView(LoginRequiredMixin, View):
         wb.save(response)
         return response
 
+from django.db.models import F, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce
+
+from decimal import Decimal
+from django.views.generic import ListView, View, DetailView, TemplateView
+from django.shortcuts import render, get_object_or_404
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.utils import timezone
+from django.db.models import F, DecimalField, ExpressionWrapper
+from django.db.models.functions import Coalesce, TruncDate
+from django.db.models import Avg
+
+from price_parser.models import Product, ParsedProduct
+from price_parser.utils.price_utils import filtered_unique_mean
+
+
+class ProductDetailView(DetailView):
+    model = Product
+    template_name = "price_parser/product_detail.html"
+    context_object_name = "product"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        product = self.object
+        last_parsed = product.parsed_products.order_by("-fetched_at").first()
+        context["last_parsed"] = last_parsed
+
+        # График: одна точка — средняя цена
+        if last_parsed:
+            context["labels"] = [last_parsed.fetched_at.strftime("%Y-%m-%d")]
+            context["data"] = [float(product.avg_price_lemanapro or 0)]
+        else:
+            context["labels"] = []
+            context["data"] = []
+
+        return context
+
 
 class ReportsView(LoginRequiredMixin, TemplateView):
-    """Отображение отчетов по пропарсенным продуктам"""
     template_name = "price_parser/reports.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Рассчитаем % изменение по каждому продукту: сравнить среднюю за 30 дней и среднюю за предыдущие 30 дней
-        now = timezone.now()
-        last_3 = now - timedelta(days=3)
-        prev_6 = now - timedelta(days=6)
-
         products = Product.objects.filter(owner=self.request.user)
         report_items = []
+
         for p in products:
-            new_avg = ParsedProduct.objects.filter(product=p, fetched_at__gte=last_3).aggregate(avg=Avg('price'))['avg'] or 0
-            prev_avg = ParsedProduct.objects.filter(product=p, fetched_at__gte=prev_6, fetched_at__lt=last_3).aggregate(avg=Avg('price'))['avg'] or 0
-            change_pct = ((new_avg - prev_avg) / prev_avg * 100) if prev_avg else None
-            # new_avg = new_avg_qs.aggregate(avg=Avg('price'))['avg'] or 0
-            # prev_avg = prev_avg_qs.aggregate(avg=Avg('price'))['avg'] or 0
-
-            # if prev_avg:
-            #     change_pct = ((new_avg - prev_avg) / prev_avg) * 100
-            # else:
-            #     change_pct = None
-
+            last_parsed = p.parsed_products.order_by("-fetched_at").first()
             report_items.append({
                 "product": p,
-                "new_avg": new_avg,
-                "prev_avg": prev_avg,
-                "change_pct": round(change_pct, 2) if change_pct is not None else None,
-                "popularity": p.popularity or 0
+                "new_avg": round(p.avg_price_lemanapro or 0, 2),
+                "prev_avg": None,
+                "change_pct": None,
+                "popularity": p.popularity or 0,
+                "source": last_parsed.source if last_parsed else "",
             })
 
-        context['report_items'] = sorted(report_items, key=lambda x: (x['change_pct'] is None, -(x['change_pct'] or 0)))[:100] #context['report_items'] = report_items
+        context["report_items"] = sorted(
+            report_items,
+            key=lambda x: (x["change_pct"] is None, -(x["change_pct"] or 0))
+        )
         return context
+
 
 # ============================
 # Парсинг одного товара через AJAX
