@@ -1,14 +1,26 @@
+# lemana_service.py
 from decimal import Decimal
 from django.utils import timezone
 from price_parser.models import Product, ParsedProduct, ParsedProductArchive
 from price_parser.utils.price_utils import filtered_unique_mean, extract_unit_and_pack
 from .lemana_parse import LemanaProScraper
 
+# services/lemana_service.py
+import os
+from decimal import Decimal
+from django.utils import timezone
+from price_parser.models import Product, ParsedProduct, ParsedProductArchive
+from price_parser.utils.price_utils import filtered_unique_mean, extract_unit_and_pack
+from .lemana_parse import LemanaProScraper
+from selenium.common.exceptions import WebDriverException
 
-def lemana_parse_saved(product_name: str, product_id: int = None, owner=None):
+PARSED_DIR = "parsed_products"
+os.makedirs(PARSED_DIR, exist_ok=True)
+
+def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, headless=False):
     """
-    Парсит сайт, сохраняет ParsedProduct и обновляет Product.avg_price_lemanapro.
-    Если product_id передан, обновляет конкретный Product; иначе пытается найти по name.
+    Парсит LEMANAPRO, сохраняет ParsedProduct, архивирует старые цены.
+    По умолчанию headless=False, как в команде.
     """
     today = timezone.now().date()
     prod_obj = None
@@ -20,21 +32,20 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None):
     else:
         prod_obj = Product.objects.filter(name__icontains=product_name).first()
 
-    scraper = LemanaProScraper(headless=True)
+    scraper = None
     try:
+        scraper = LemanaProScraper(headless=headless)
         result = scraper.find_matching_products(product_name)
         if not result:
             return None
 
         for p in result["products"]:
-            # получаем фасовку/единицу по названию
             unit, pack_size = extract_unit_and_pack(p["name"])
             if not unit:
                 unit = p.get("unit") or "шт"
             if not pack_size or pack_size == 0:
                 pack_size = Decimal(1)
 
-            # создаём или обновляем ParsedProduct один раз в день
             parsed_obj, created = ParsedProduct.objects.update_or_create(
                 product=prod_obj,
                 url=p.get("url"),
@@ -49,9 +60,8 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None):
                 }
             )
 
-            # если цена или фасовка изменилась и объект уже существовал — архивируем
-            if not created:
-                if parsed_obj.price != p["price"] or parsed_obj.pack_size != pack_size:
+            if not created and (parsed_obj.price != p["price"] or parsed_obj.pack_size != pack_size):
+                try:
                     ParsedProductArchive.objects.create(
                         product=parsed_obj.product,
                         name=parsed_obj.name,
@@ -62,30 +72,59 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None):
                         source=parsed_obj.source,
                         fetched_at=parsed_obj.fetched_at
                     )
-                    parsed_obj.name = p["name"]
-                    parsed_obj.price = p["price"]
-                    parsed_obj.unit = unit
-                    parsed_obj.pack_size = pack_size
-                    parsed_obj.fetched_at = timezone.now()
-                    parsed_obj.save()
+                except Exception:
+                    pass
+                parsed_obj.name = p["name"]
+                parsed_obj.price = p["price"]
+                parsed_obj.unit = unit
+                parsed_obj.pack_size = pack_size
+                parsed_obj.fetched_at = timezone.now()
+                parsed_obj.save()
 
-        # обновляем среднюю цену в Product (если есть prod_obj)
+        # пересчет avg_price
         if prod_obj:
             all_pp = ParsedProduct.objects.filter(product=prod_obj)
-            unit_prices = []
-            for pp in all_pp:
-                if pp.price is None:
-                    continue
-                ps = pp.pack_size or Decimal(1)
-                unit_prices.append((pp.price / ps) if ps else pp.price)
-            avg_price_per_unit = filtered_unique_mean(unit_prices)
+            unit_prices = [(pp.price / (pp.pack_size or 1)) for pp in all_pp if pp.price is not None]
+            avg_price_per_unit = filtered_unique_mean(unit_prices) if unit_prices else None
             prod_obj.avg_price_lemanapro = avg_price_per_unit
             prod_obj.parsed = bool(all_pp.exists())
             prod_obj.save()
 
+        # сохраняем файл для отладки/отчета
+        try:
+            filename = os.path.join(PARSED_DIR, f"{product_name}.txt")
+            with open(filename, "w", encoding="utf-8") as f:
+                for p in result["products"]:
+                    f.write(f"{p}\n")
+        except Exception:
+            pass
+
         return result.get("avg_price")
+
+    except WebDriverException as e:
+        if scraper and hasattr(scraper, "driver"):
+            try:
+                scraper.driver.save_screenshot(os.path.join(PARSED_DIR, f"webdriver_error_{product_name}.png"))
+            except Exception:
+                pass
+        print(f"❌ WebDriver ошибка: {e}")
+        return None
+
+    except Exception as e:
+        if scraper and hasattr(scraper, "driver"):
+            try:
+                scraper.driver.save_screenshot(os.path.join(PARSED_DIR, f"error_{product_name}.png"))
+            except Exception:
+                pass
+        print(f"❌ Ошибка парсинга: {e}")
+        return None
+
     finally:
-        scraper.close()
+        if scraper:
+            scraper.close()
+
+
+
 # from decimal import Decimal
 # from django.utils import timezone
 # from price_parser.models import Product, ParsedProduct, ParsedProductArchive

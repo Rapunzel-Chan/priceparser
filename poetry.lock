@@ -1940,6 +1940,18 @@ files = [
 ]
 
 [[package]]
+name = "pyvirtualdisplay"
+version = "3.0"
+description = "python wrapper for Xvfb, Xephyr and Xvnc"
+optional = false
+python-versions = "*"
+groups = ["main"]
+files = [
+    {file = "PyVirtualDisplay-3.0-py3-none-any.whl", hash = "sha256:40d4b8dfe4b8de8552e28eb367647f311f88a130bf837fe910e7f180d5477f0e"},
+    {file = "PyVirtualDisplay-3.0.tar.gz", hash = "sha256:09755bc3ceb6eb725fb07eca5425f43f2358d3bf08e00d2a9b792a1aedd16159"},
+]
+
+[[package]]
 name = "rabbitmq"
 version = "0.2.0"
 description = "CFFI bindings to librabbitmq 0.8.0"
@@ -2486,4 +2498,4 @@ h11 = ">=0.9.0,<1"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<4.0"
-content-hash = "8bce0c17b3680819b33bd2aeb1f75a79fd7cdc0ee19ac5c5ceb527e97a1812ae"
+content-hash = "8360937e8c3362793003a00d74b255173797574099e156a1d745878c351b087b"

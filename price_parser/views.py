@@ -12,7 +12,9 @@ import json
 import openpyxl
 from django.views.generic import TemplateView
 from django.db.models import F, Subquery, OuterRef, Avg
-from .models import Product, ParsedProduct
+from rest_framework.reverse import reverse_lazy
+
+from .models import Product, ParsedProduct, Contact
 from datetime import timedelta
 from django.utils import timezone
 from .models import Product, Category, ParsedProduct, ParserSchedule
@@ -672,28 +674,6 @@ from price_parser.models import Product, ParsedProduct
 from price_parser.utils.price_utils import filtered_unique_mean
 
 
-class ProductDetailView(DetailView):
-    model = Product
-    template_name = "price_parser/product_detail.html"
-    context_object_name = "product"
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        product = self.object
-        last_parsed = product.parsed_products.order_by("-fetched_at").first()
-        context["last_parsed"] = last_parsed
-
-        # График: одна точка — средняя цена
-        if last_parsed:
-            context["labels"] = [last_parsed.fetched_at.strftime("%Y-%m-%d")]
-            context["data"] = [float(product.avg_price_lemanapro or 0)]
-        else:
-            context["labels"] = []
-            context["data"] = []
-
-        return context
-
-
 class ReportsView(LoginRequiredMixin, TemplateView):
     template_name = "price_parser/reports.html"
 
@@ -719,6 +699,25 @@ class ReportsView(LoginRequiredMixin, TemplateView):
         )
         return context
 
+class ContactsView(TemplateView):
+    template_name = "price_parser/contacts.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        contact = Contact.objects.first()
+        context["contact"] = contact
+        return context
+
+    def post(self, request, *args, **kwargs):
+
+        name = request.POST.get("name")
+        message = request.POST.get("message")
+        phone = request.POST.get("phone")
+
+        if name and phone and message:
+            messages.success(request, "Спасибо! Ваше сообщение успешно отправлено.")
+
+        return redirect(reverse_lazy("catalog:contacts"))
 
 # ============================
 # Парсинг одного товара через AJAX

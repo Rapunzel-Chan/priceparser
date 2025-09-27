@@ -85,6 +85,9 @@ class ParsedProduct(models.Model):
         null=True, blank=True,
         related_name='parsed_products'
     )
+    parser = models.ForeignKey(
+        "ParserSchedule", null=True, blank=True, on_delete=models.SET_NULL, related_name="parsed_products"
+    )
     class Meta:
         indexes = [models.Index(fields=['name'])]
 
@@ -96,7 +99,7 @@ class ParsedProductArchive(models.Model):
     pack_size = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     url = models.URLField(blank=True, null=True)
     source = models.CharField(max_length=50, default='lemanapro')
-    fetched_at = models.DateTimeField(auto_now_add=True)
+    fetched_at = models.DateTimeField(default=timezone.now)
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
@@ -182,3 +185,29 @@ class ParserSchedule(models.Model):
     def __str__(self):
         return f"{self.name} ({self.platform})"
 
+
+class ProductPriceHistory(models.Model):
+    """История изменения средней цены товара"""
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='price_history')
+    date = models.DateField()
+    avg_price_per_unit = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('product', 'date')
+        ordering = ['date']
+
+    def __str__(self):
+        return f"{self.product.name} - {self.date}: {self.avg_price_per_unit}"
+
+class Contact(models.Model):
+    country = models.CharField("Страна", max_length=100)
+    inn = models.CharField("ИНН", max_length=20)
+    address = models.CharField("Адрес", max_length=255)
+
+    class Meta:
+        verbose_name = "Контакт"
+        verbose_name_plural = "Контактные данные"
+
+    def __str__(self):
+        return f"{self.country}, {self.address}"

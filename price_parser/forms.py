@@ -25,6 +25,16 @@ class ParserScheduleForm(forms.ModelForm):
             'is_active': forms.CheckboxInput(attrs={'class': 'form-check-input'}),
         }
 
+# from django import forms
+# from .models import Product
+#
+# class ProductSelectForm(forms.Form):
+#     products = forms.ModelMultipleChoiceField(
+#         queryset=Product.objects.all(),
+#         widget=forms.CheckboxSelectMultiple,
+#         required=True
+#     )
+
 
 class StyleFormMixin:
     def __init__(self, *args, **kwargs):

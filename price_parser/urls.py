@@ -63,6 +63,7 @@ urlpatterns = [
     path('contacts/', TemplateView.as_view(template_name='contacts.html'), name='contacts'),
     # Reports
     path("reports/", views.ReportsView.as_view(), name="reports"),
+    # path("contacts/", ContactsView.as_view(), name="contacts"),
     # --- СТАРЫЙ способ: вывод результатов (если нужен) ---
     # path('results/', views.ProductResultView.as_view(), name='show_selected_products'),
 ]

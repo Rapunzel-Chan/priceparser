@@ -31,7 +31,8 @@ dependencies = [
     "phonenumberslite (>=9.0.14,<10.0.0)",
     "pillow (>=11.3.0,<12.0.0)",
     "djangorestframework (>=3.16.1,<4.0.0)",
-    "djangorestframework-simplejwt (>=5.5.1,<6.0.0)"
+    "djangorestframework-simplejwt (>=5.5.1,<6.0.0)",
+    "pyvirtualdisplay (>=3.0,<4.0)"
 ]
 
 

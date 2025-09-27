@@ -27,3 +27,5 @@ class ParsedProductArchiveAdmin(admin.ModelAdmin):
 class ParserScheduleAdmin(admin.ModelAdmin):
     list_display = ('name', 'platform', 'interval', 'is_active', 'last_run')
     list_filter = ('platform', 'is_active')
+
+# admin.site.register(Contact)

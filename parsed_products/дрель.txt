@@ -5,7 +5,7 @@
 {'name': '', 'price': Decimal('13218'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/', 'price_per_unit': Decimal('13218')}
 {'name': '', 'price': Decimal('13218'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/', 'price_per_unit': Decimal('13218')}
 {'name': '', 'price': Decimal('13121'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/shop/', 'price_per_unit': Decimal('13121')}
-{'name': '', 'price': Decimal('15780'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://auth.lemanapro.ru/?state=https://lemanapro.ru/search/?q=%D1%88%D1%83%D1%80%D1%83%D0%BF%D0%BE%D0%B2%D0%B5%D1%80%D1%82', 'price_per_unit': Decimal('15780')}
+{'name': '', 'price': Decimal('15780'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://auth.lemanapro.ru/?state=https://lemanapro.ru/search/?q=%D0%B4%D1%80%D0%B5%D0%BB%D1%8C', 'price_per_unit': Decimal('15780')}
 {'name': '', 'price': Decimal('5444'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/basket/', 'price_per_unit': Decimal('5444')}
 {'name': '', 'price': Decimal('9990'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/search/', 'price_per_unit': Decimal('9990')}
 {'name': '', 'price': Decimal('3578'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://spb.lemanapro.ru/search/', 'price_per_unit': Decimal('3578')}
@@ -15,6 +15,6 @@
 {'name': '', 'price': Decimal('3074'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://vladivostok.lemanapro.ru/search/', 'price_per_unit': Decimal('3074')}
 {'name': '', 'price': Decimal('3038'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://vladikavkaz.lemanapro.ru/search/', 'price_per_unit': Decimal('3038')}
 {'name': '', 'price': Decimal('2990'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://volgograd.lemanapro.ru/search/', 'price_per_unit': Decimal('2990')}
-{'name': '', 'price': Decimal('6594'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://voronezh.lemanapro.ru/search/', 'price_per_unit': Decimal('6594')}
-{'name': '', 'price': Decimal('3240'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://ekaterinburg.lemanapro.ru/search/', 'price_per_unit': Decimal('3240')}
+{'name': '', 'price': Decimal('3240'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://voronezh.lemanapro.ru/search/', 'price_per_unit': Decimal('3240')}
+{'name': '', 'price': Decimal('6594'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://ekaterinburg.lemanapro.ru/search/', 'price_per_unit': Decimal('6594')}
 {'name': '', 'price': Decimal('6800'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://ivanovo.lemanapro.ru/search/', 'price_per_unit': Decimal('6800')}

@@ -1,0 +1,20 @@
+{'name': 'Промокоды на скидку\nв личном кабинете\nООО "ЛЕ МОНЛИД", ИНН: 5029069967, ОГРН: 1035005516105, erid: 2VSb5wHb5wf', 'price': Decimal('143'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/lk/promocodes/', 'price_per_unit': Decimal('143')}
+{'name': 'Лемана ПРО', 'price': Decimal('28'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/', 'price_per_unit': Decimal('28')}
+{'name': '', 'price': Decimal('155'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/basket/', 'price_per_unit': Decimal('155')}
+{'name': '', 'price': Decimal('104'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/basket/', 'price_per_unit': Decimal('104')}
+{'name': '', 'price': Decimal('74'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/', 'price_per_unit': Decimal('74')}
+{'name': '', 'price': Decimal('35'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/', 'price_per_unit': Decimal('35')}
+{'name': '', 'price': Decimal('81'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/shop/', 'price_per_unit': Decimal('81')}
+{'name': '', 'price': Decimal('43'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://auth.lemanapro.ru/?state=https://lemanapro.ru/search/?q=%D0%BA%D0%B8%D1%81%D1%82%D1%8C', 'price_per_unit': Decimal('43')}
+{'name': '', 'price': Decimal('150'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/basket/', 'price_per_unit': Decimal('150')}
+{'name': '', 'price': Decimal('246'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://lemanapro.ru/search/', 'price_per_unit': Decimal('246')}
+{'name': '', 'price': Decimal('197'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://spb.lemanapro.ru/search/', 'price_per_unit': Decimal('197')}
+{'name': '', 'price': Decimal('178'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://arkhangelsk.lemanapro.ru/search/', 'price_per_unit': Decimal('178')}
+{'name': '', 'price': Decimal('78'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://barnaul.lemanapro.ru/search/', 'price_per_unit': Decimal('78')}
+{'name': '', 'price': Decimal('287'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://belgorod.lemanapro.ru/search/', 'price_per_unit': Decimal('287')}
+{'name': '', 'price': Decimal('66'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://vladivostok.lemanapro.ru/search/', 'price_per_unit': Decimal('66')}
+{'name': '', 'price': Decimal('190'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://vladikavkaz.lemanapro.ru/search/', 'price_per_unit': Decimal('190')}
+{'name': '', 'price': Decimal('50'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://volgograd.lemanapro.ru/search/', 'price_per_unit': Decimal('50')}
+{'name': '', 'price': Decimal('158'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://voronezh.lemanapro.ru/search/', 'price_per_unit': Decimal('158')}
+{'name': '', 'price': Decimal('118'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://ekaterinburg.lemanapro.ru/search/', 'price_per_unit': Decimal('118')}
+{'name': '', 'price': Decimal('206'), 'unit': None, 'pack_size': Decimal('1'), 'url': 'https://ivanovo.lemanapro.ru/search/', 'price_per_unit': Decimal('206')}
