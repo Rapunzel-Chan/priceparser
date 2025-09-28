@@ -1,67 +1,169 @@
 {% extends 'price_parser/base.html' %}
 
 {% block content %}
-<h1>{{ product.name }}</h1>
+<div class="container mt-4">
+    <h1>{{ product.name }}</h1>
 
-{% with last=last_parsed %}
-  {% if last %}
-    <p><strong>Фасовка:</strong> {{ last.pack_size|default:1 }} {{ last.unit|default:"шт." }}</p>
-    <p><strong>Средняя цена:</strong> {{ product.avg_price_lemanapro }} ₽</p>
-    <p><strong>Источник:</strong> {{ last.source }}</p>
-  {% else %}
-    <p><strong>Фасовка:</strong> —</p>
-    <p><strong>Средняя цена:</strong> —</p>
-    <p><strong>Источник:</strong> —</p>
-  {% endif %}
-{% endwith %}
+    <div class="card mb-4">
+        <div class="card-body">
+            {% with last=last_parsed %}
+              {% if last %}
+                <p><strong>Фасовка:</strong> {{ last.pack_size|default:1 }} {{ last.unit|default:"шт." }}</p>
+                <p><strong>Средняя цена:</strong>
+                  {% if product.avg_price_lemanapro %}
+                    {{ product.avg_price_lemanapro|floatformat:2 }} ₽
+                  {% else %}
+                    {% if last_history %}
+                      {{ last_history.avg_price_per_unit|floatformat:2 }} ₽
+                      <small class="text-muted">(из истории)</small>
+                    {% else %}
+                      —
+                    {% endif %}
+                  {% endif %}
+                </p>
+                <p><strong>Источник:</strong> {{ last.source }}</p>
 
-<canvas id="priceChart"></canvas>
+                {% if not has_today_record %}
+                <div class="alert alert-warning">
+                  <strong>Внимание!</strong> Сегодняшняя цена отображается на графике, но не сохранена в истории.
+                </div>
+                {% endif %}
+              {% else %}
+                <p><strong>Фасовка:</strong> —</p>
+                <p><strong>Средняя цена:</strong> —</p>
+                <p><strong>Источник:</strong> —</p>
+                <div class="alert alert-info">
+                  <strong>Информация:</strong> Для этого товара еще нет данных парсинга.
+                </div>
+              {% endif %}
+            {% endwith %}
+        </div>
+    </div>
 
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>График изменения цен</h5>
+        </div>
+        <div class="card-body">
+            <canvas id="priceChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>История изменения цен</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Дата</th>
+                            <th>Средняя цена</th>
+                            <th>Изменение</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in history_with_changes %}
+                        <tr>
+                            <td>{{ item.date }}</td>
+                            <td>{{ item.avg_price_per_unit|floatformat:2 }} ₽</td>
+                            <td>
+                                {% if item.change %}
+                                    {% if item.change > 0 %}
+                                        <span class="text-success">+{{ item.change|floatformat:2 }} ₽</span>
+                                    {% elif item.change < 0 %}
+                                        <span class="text-danger">{{ item.change|floatformat:2 }} ₽</span>
+                                    {% else %}
+                                        <span class="text-secondary">Без изменений</span>
+                                    {% endif %}
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="3" class="text-center">Нет данных об истории цен</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Подключаем Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-const labels = [{% for d in labels %}'{{ d }}',{% endfor %}];
-const data = [{% for v in data %}{{ v }},{% endfor %}];
+<!-- Подключаем адаптер для временной оси -->
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
 
-const ctx = document.getElementById('priceChart').getContext('2d');
-new Chart(ctx, {
-    type: 'line',
-    data: {
-        labels: labels,
-        datasets: [{
-            label: 'Средняя цена (за единицу)',
-            data: data,
-            fill: false,
-            borderColor: 'blue',
-            tension: 0.1
-        }]
-    },
-    options: {
-        scales: {
-            y: {
-                beginAtZero: false,
-                title: {
-                    display: true,
-                    text: 'Цена, ₽'
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const labels = [{% for d in labels %}'{{ d }}',{% endfor %}];
+    const data = [{% for v in data %}{{ v }},{% endfor %}];
+
+    // Преобразуем строки дат в объекты Date
+    const chartData = labels.map((label, index) => ({
+        x: new Date(label),
+        y: data[index]
+    }));
+
+    // Сортируем данные по дате
+    chartData.sort((a, b) => a.x - b.x);
+
+    const ctx = document.getElementById('priceChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            datasets: [{
+                label: 'Средняя цена (за единицу)',
+                data: chartData,
+                fill: false,
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: {
+                    type: 'time',  // Указываем временную ось
+                    time: {
+                        unit: 'day',
+                        displayFormats: {
+                            day: 'MMM dd'
+                        }
+                    },
+                    title: {
+                        display: true,
+                        text: 'Дата'
+                    }
+                },
+                y: {
+                    beginAtZero: false,
+                    title: {
+                        display: true,
+                        text: 'Цена, ₽'
+                    }
                 }
             },
-            x: {
-                title: {
+            plugins: {
+                legend: {
                     display: true,
-                    text: 'Дата'
-                }
-            }
-        },
-        plugins: {
-            legend: { display: true },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        return context.parsed.y + " ₽";
+                    position: 'top'
+                },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.parsed.y.toFixed(2) + " ₽";
+                        }
                     }
                 }
             }
         }
-    }
+    });
 });
 </script>
 {% endblock %}

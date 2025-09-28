@@ -115,13 +115,23 @@ from .tasks import parse_products_batch_task
 from django.views.generic import TemplateView, DetailView
 from .models import Product, ParsedProduct
 
+
 class IndexView(TemplateView):
     template_name = 'price_parser/index1.html'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        # Популярные товары (без фильтра is_active)
-        context['popular_products'] = Product.objects.order_by('-popularity').select_related('category')[:8]
+
+        # Получаем популярные товары с гарантией наличия цены
+        popular_products = Product.objects.filter(
+            avg_price_lemanapro__isnull=False
+        ).order_by('-popularity').select_related('category')[:8]
+
+        # Если нет товаров с ценой, берем все популярные
+        if not popular_products.exists():
+            popular_products = Product.objects.order_by('-popularity').select_related('category')[:8]
+
+        context['popular_products'] = popular_products
         return context
 
 # class IndexView(View):
@@ -235,18 +245,45 @@ class ProductDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         product = self.object
+
+        # Получаем последнюю пропарсенную цену
         last_parsed = product.parsed_products.order_by("-fetched_at").first()
         context["last_parsed"] = last_parsed
 
-        # График: одна точка — средняя цена
-        if last_parsed:
-            context["labels"] = [last_parsed.fetched_at.strftime("%Y-%m-%d")]
-            context["data"] = [float(product.avg_price_lemanapro or 0)]
-        else:
-            context["labels"] = []
-            context["data"] = []
+        # Проверяем, есть ли запись в истории цен за сегодня
+        today = timezone.now().date()
+        context["has_today_record"] = product.price_history.filter(date=today).exists()
+
+        # Получаем историю средних цен за последние 30 дней
+        thirty_days_ago = today - timezone.timedelta(days=30)
+        price_history = product.price_history.filter(date__gte=thirty_days_ago).order_by('date')
+
+        # Формируем данные для графика и таблицы
+        labels = []
+        data = []
+        history_with_changes = []
+
+        history_list = list(price_history)
+        for i, history in enumerate(history_list):
+            labels.append(history.date.strftime('%Y-%m-%d'))
+            data.append(float(history.avg_price_per_unit))
+
+            change = None
+            if i > 0:
+                change = history.avg_price_per_unit - history_list[i - 1].avg_price_per_unit
+
+            history_with_changes.append({
+                'date': history.date,
+                'avg_price_per_unit': history.avg_price_per_unit,
+                'change': change
+            })
+
+        context["labels"] = labels
+        context["data"] = data
+        context["history_with_changes"] = history_with_changes
 
         return context
+
 
 
 # class ProductDetailView(LoginRequiredMixin, DetailView):
@@ -480,12 +517,18 @@ class RunParserNowView(LoginRequiredMixin, View):
     """Запуск парсера вручную"""
 
     def get(self, request, pk):
-        parser = get_object_or_404(ParserSchedule, pk=pk, owner=request.user) #owner
+        parser = get_object_or_404(ParserSchedule, pk=pk, owner=request.user)
         product_ids = list(parser.products.values_list('id', flat=True))
         if not product_ids:
             messages.error(request, "Нет продуктов в парсере — добавьте продукты перед запуском.")
             return redirect('price_parser:parsers')
-        parse_products_batch_task.delay(product_ids, user_id=request.user.id) #owner
+
+        # Передаем parser_id в задачу
+        parse_products_batch_task.delay(
+            product_ids,
+            user_id=request.user.id,
+            parser_id=parser.id  # <-- Добавляем parser_id
+        )
         parser.last_run = timezone.now()
         parser.save()
         messages.success(request, f"Парсер '{parser.name}' запущен")
@@ -669,11 +712,6 @@ from django.utils import timezone
 from django.db.models import F, DecimalField, ExpressionWrapper
 from django.db.models.functions import Coalesce, TruncDate
 from django.db.models import Avg
-
-from price_parser.models import Product, ParsedProduct
-from price_parser.utils.price_utils import filtered_unique_mean
-
-
 class ReportsView(LoginRequiredMixin, TemplateView):
     template_name = "price_parser/reports.html"
 
@@ -684,20 +722,91 @@ class ReportsView(LoginRequiredMixin, TemplateView):
 
         for p in products:
             last_parsed = p.parsed_products.order_by("-fetched_at").first()
+            # Получаем текущую и предыдущую среднюю цену
+            current_avg = p.avg_price_lemanapro
+            from_history = False
+            prev_avg = None
+            change_pct = None
+
+            # Если текущая цена не установлена, берем из истории
+            if not current_avg:
+                last_history = p.price_history.order_by('-date').first()
+                if last_history:
+                    current_avg = last_history.avg_price_per_unit
+                    from_history = True
+
+            if current_avg:
+                # Ищем предыдущую запись в истории цен
+                prev_history = p.price_history.exclude(date=timezone.now().date()).order_by('-date').first()
+                if prev_history:
+                    prev_avg = prev_history.avg_price_per_unit
+                    if prev_avg > 0:
+                        change_pct = round(((current_avg - prev_avg) / prev_avg) * 100, 2)
+
             report_items.append({
                 "product": p,
-                "new_avg": round(p.avg_price_lemanapro or 0, 2),
-                "prev_avg": None,
-                "change_pct": None,
+                "new_avg": round(current_avg, 2) if current_avg else None,
+                "prev_avg": round(prev_avg, 2) if prev_avg else None,
+                "change_pct": change_pct,
                 "popularity": p.popularity or 0,
                 "source": last_parsed.source if last_parsed else "",
+                "from_history": from_history
             })
 
+        # Сортируем по изменению цены (от большего к меньшему)
         context["report_items"] = sorted(
             report_items,
             key=lambda x: (x["change_pct"] is None, -(x["change_pct"] or 0))
         )
         return context
+# from price_parser.models import Product, ParsedProduct
+# from price_parser.utils.price_utils import filtered_unique_mean
+#
+#
+# class ReportsView(LoginRequiredMixin, TemplateView):
+#     template_name = "price_parser/reports.html"
+#
+#     def get_context_data(self, **kwargs):
+#         context = super().get_context_data(**kwargs)
+#         products = Product.objects.filter(owner=self.request.user)
+#         report_items = []
+#
+#         for p in products:
+#             last_parsed = p.parsed_products.order_by("-fetched_at").first()
+#             # Получаем текущую и предыдущую среднюю цену
+#             current_avg = p.avg_price_lemanapro
+#             prev_avg = None
+#             change_pct = None
+#
+#             # Если текущая цена не установлена, берем из истории
+#             if not current_avg:
+#                 last_history = p.price_history.order_by('-date').first()
+#                 if last_history:
+#                     current_avg = last_history.avg_price_per_unit
+#
+#             if current_avg:
+#                 # Ищем предыдущую запись в истории цен
+#                 prev_history = p.price_history.exclude(date=timezone.now().date()).order_by('-date').first()
+#                 if prev_history:
+#                     prev_avg = prev_history.avg_price_per_unit
+#                     if prev_avg > 0:
+#                         change_pct = round(((current_avg - prev_avg) / prev_avg) * 100, 2)
+#
+#             report_items.append({
+#                 "product": p,
+#                 "new_avg": round(current_avg, 2) if current_avg else None,
+#                 "prev_avg": round(prev_avg, 2) if prev_avg else None,
+#                 "change_pct": change_pct,
+#                 "popularity": p.popularity or 0,
+#                 "source": last_parsed.source if last_parsed else "",
+#             })
+#
+#         # Сортируем по изменению цены (от большего к меньшему)
+#         context["report_items"] = sorted(
+#             report_items,
+#             key=lambda x: (x["change_pct"] is None, -(x["change_pct"] or 0))
+#         )
+#         return context
 
 class ContactsView(TemplateView):
     template_name = "price_parser/contacts.html"
@@ -717,7 +826,7 @@ class ContactsView(TemplateView):
         if name and phone and message:
             messages.success(request, "Спасибо! Ваше сообщение успешно отправлено.")
 
-        return redirect(reverse_lazy("catalog:contacts"))
+        return redirect(reverse_lazy("price_parser:contacts"))
 
 # ============================
 # Парсинг одного товара через AJAX

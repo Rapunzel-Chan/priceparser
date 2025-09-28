@@ -3,7 +3,7 @@ from django.views.decorators.cache import cache_page
 from django.views.generic import TemplateView
 
 from . import views
-from .views import ProductSelectView, ProductDetailView, IndexView
+from .views import ProductSelectView, ProductDetailView, IndexView, ContactsView
 from price_parser.apps import PriceParserConfig
 # from price_parser.views import AddProductsView
 # # from catalog.views import (CategoryListView, ContactsView, ProductCategoryListView, ProductCreateView,
@@ -63,7 +63,7 @@ urlpatterns = [
     path('contacts/', TemplateView.as_view(template_name='contacts.html'), name='contacts'),
     # Reports
     path("reports/", views.ReportsView.as_view(), name="reports"),
-    # path("contacts/", ContactsView.as_view(), name="contacts"),
+    path("contacts/", views.ContactsView.as_view(), name="contacts"),
     # --- СТАРЫЙ способ: вывод результатов (если нужен) ---
     # path('results/', views.ProductResultView.as_view(), name='show_selected_products'),
 ]

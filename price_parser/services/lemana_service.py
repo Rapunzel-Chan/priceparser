@@ -9,7 +9,7 @@ from .lemana_parse import LemanaProScraper
 import os
 from decimal import Decimal
 from django.utils import timezone
-from price_parser.models import Product, ParsedProduct, ParsedProductArchive
+from price_parser.models import Product, ParsedProduct, ParsedProductArchive, ProductPriceHistory
 from price_parser.utils.price_utils import filtered_unique_mean, extract_unit_and_pack
 from .lemana_parse import LemanaProScraper
 from selenium.common.exceptions import WebDriverException
@@ -17,10 +17,66 @@ from selenium.common.exceptions import WebDriverException
 PARSED_DIR = "parsed_products"
 os.makedirs(PARSED_DIR, exist_ok=True)
 
-def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, headless=False):
+
+def update_product_price(prod_obj):
+    """Обновляет среднюю цену продукта и историю цен"""
+    if not prod_obj:
+        return
+
+    try:
+        # Получаем все связанные записи ParsedProduct
+        all_pp = ParsedProduct.objects.filter(product=prod_obj)
+        unit_prices = []
+
+        for pp in all_pp:
+            if pp.price is None:
+                continue
+
+            # Проверка на аномально высокие цены (более 100000 рублей)
+            if pp.price > Decimal('100000'):
+                print(f"⚠️ Пропущена аномально высокая цена для {prod_obj.name}: {pp.price}")
+                continue
+
+            pack_size = pp.pack_size or Decimal(1)
+            if pack_size == 0:
+                pack_size = Decimal(1)
+
+            price_per_unit = pp.price / pack_size
+            unit_prices.append(price_per_unit)
+
+        avg_price_per_unit = filtered_unique_mean(unit_prices) if unit_prices else None
+
+        # Обновляем среднюю цену в модели Product
+        prod_obj.avg_price_lemanapro = avg_price_per_unit
+        prod_obj.parsed = bool(all_pp.exists())
+        prod_obj.save()
+
+        # Обновляем историю цен только если есть новые данные
+        if avg_price_per_unit is not None:
+            today = timezone.now().date()
+            ProductPriceHistory.objects.update_or_create(
+                product=prod_obj,
+                date=today,
+                defaults={
+                    'avg_price_per_unit': avg_price_per_unit
+                }
+            )
+            print(f"✅ Обновлена средняя цена для {prod_obj.name}: {avg_price_per_unit}")
+        else:
+            # Если нет данных, используем последнюю известную цену из истории
+            last_history = prod_obj.price_history.order_by('-date').first()
+            if last_history:
+                prod_obj.avg_price_lemanapro = last_history.avg_price_per_unit
+                prod_obj.save()
+                print(f"✅ Восстановлена цена из истории для {prod_obj.name}: {last_history.avg_price_per_unit}")
+    except Exception as e:
+        print(f"❌ Ошибка при обновлении цены для {prod_obj.name}: {e}")
+        import traceback
+        traceback.print_exc()
+
+def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, headless=False, parser_id=None):
     """
-    Парсит LEMANAPRO, сохраняет ParsedProduct, архивирует старые цены.
-    По умолчанию headless=False, как в команде.
+    Парсит LEMANAPRO, сохраняет ParsedProduct, архивирует старые цены и обновляет историю.
     """
     today = timezone.now().date()
     prod_obj = None
@@ -32,13 +88,27 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, he
     else:
         prod_obj = Product.objects.filter(name__icontains=product_name).first()
 
+    # Получаем объект парсера, если передан parser_id
+    parser_obj = None
+    if parser_id:
+        try:
+            from price_parser.models import ParserSchedule
+            parser_obj = ParserSchedule.objects.get(pk=parser_id)
+        except ParserSchedule.DoesNotExist:
+            pass
+
     scraper = None
     try:
         scraper = LemanaProScraper(headless=headless)
         result = scraper.find_matching_products(product_name)
+
+        # Если парсинг не удался, все равно обновляем цену из истории
         if not result:
+            print(f"⚠️ Результаты парсинга не получены для {product_name}")
+            update_product_price(prod_obj)
             return None
 
+        # Сохраняем полученные товары
         for p in result["products"]:
             unit, pack_size = extract_unit_and_pack(p["name"])
             if not unit:
@@ -56,7 +126,8 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, he
                     'unit': unit,
                     'pack_size': pack_size,
                     'source': "lemanapro",
-                    'owner': owner
+                    'owner': owner,
+                    'parser': parser_obj
                 }
             )
 
@@ -81,23 +152,8 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, he
                 parsed_obj.fetched_at = timezone.now()
                 parsed_obj.save()
 
-        # пересчет avg_price
-        if prod_obj:
-            all_pp = ParsedProduct.objects.filter(product=prod_obj)
-            unit_prices = [(pp.price / (pp.pack_size or 1)) for pp in all_pp if pp.price is not None]
-            avg_price_per_unit = filtered_unique_mean(unit_prices) if unit_prices else None
-            prod_obj.avg_price_lemanapro = avg_price_per_unit
-            prod_obj.parsed = bool(all_pp.exists())
-            prod_obj.save()
-
-        # сохраняем файл для отладки/отчета
-        try:
-            filename = os.path.join(PARSED_DIR, f"{product_name}.txt")
-            with open(filename, "w", encoding="utf-8") as f:
-                for p in result["products"]:
-                    f.write(f"{p}\n")
-        except Exception:
-            pass
+        # Обновляем среднюю цену продукта
+        update_product_price(prod_obj)
 
         return result.get("avg_price")
 
@@ -108,6 +164,8 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, he
             except Exception:
                 pass
         print(f"❌ WebDriver ошибка: {e}")
+        # Все равно пытаемся обновить среднюю цену
+        update_product_price(prod_obj)
         return None
 
     except Exception as e:
@@ -117,12 +175,13 @@ def lemana_parse_saved(product_name: str, product_id: int = None, owner=None, he
             except Exception:
                 pass
         print(f"❌ Ошибка парсинга: {e}")
+        # Все равно пытаемся обновить среднюю цену
+        update_product_price(prod_obj)
         return None
 
     finally:
         if scraper:
             scraper.close()
-
 
 
 # from decimal import Decimal

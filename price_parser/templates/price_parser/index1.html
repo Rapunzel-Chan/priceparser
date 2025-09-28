@@ -29,9 +29,9 @@
               <p class="card-text mb-1">
                 <strong>Средняя цена:</strong>
                 {% if product.avg_price_lemanapro %}
-                  {{ product.avg_price_lemanapro }} ₽
+                  {{ product.avg_price_lemanapro|floatformat:2 }} ₽
                 {% else %}
-                  — <!-- нет рассчитанной средней цены -->
+                  <span class="text-muted">Нет данных</span>
                 {% endif %}
               </p>
               <div class="mt-auto d-flex justify-content-between">
