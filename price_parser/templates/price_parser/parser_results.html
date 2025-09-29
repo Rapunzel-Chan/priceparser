@@ -1,0 +1,327 @@
+{% extends "price_parser/base.html" %}
+
+{% block title %}Результаты парсинга: {{ parser.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Результаты парсинга: {{ parser.name }}</h1>
+        <div>
+            <a href="{% url 'price_parser:parsers' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> К списку парсеров
+            </a>
+            <a href="{% url 'price_parser:run_parser_now' parser.pk %}" class="btn btn-primary">
+                <i class="bi bi-arrow-clockwise"></i> Запустить парсинг
+            </a>
+        </div>
+    </div>
+    
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-4">
+                    <p><strong>Площадка:</strong> {{ parser.get_platform_display }}</p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Последний запуск:</strong> 
+                        {% if parser.last_run %}
+                            {{ parser.last_run|date:"d.m.Y H:i" }}
+                        {% else %}
+                            <span class="text-muted">Ещё не запускался</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-4">
+                    <p><strong>Статус:</strong> 
+                        {% if parser.is_active %}
+                            <span class="badge bg-success">Активен</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Неактивен</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Результаты по товарам</h5>
+            <div>
+                <button class="btn btn-sm btn-outline-secondary" id="export-summary">
+                    <i class="bi bi-download"></i> Экспорт сводки
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="export-detailed">
+                    <i class="bi bi-download"></i> Детальный экспорт
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if table_data %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover" id="results-table">
+                    <thead>
+                        <tr>
+                            <th>Товар</th>
+                            <th>Фасовка</th>
+                            <th>Ед. изм.</th>
+                            <th>Средняя цена за упаковку</th>
+                            <th>Цена за единицу</th>
+                            <th>Источник</th>
+                            <th>Дата парсинга</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in table_data %}
+                        <tr data-id="{{ item.product_id }}">
+                            <td>
+                                <a href="{% url 'price_parser:product_detail' item.product_id %}">{{ item.product_name }}</a>
+                            </td>
+                            <td>{{ item.pack_size }}</td>
+                            <td>{{ item.unit }}</td>
+                            <td>{{ item.avg_price_pack|floatformat:2 }} ₽</td>
+                            <td>{{ item.price_per_unit|floatformat:2 }} ₽</td>
+                            <td>{{ item.source }}</td>
+                            <td>{{ item.fetched_at|date:"d.m.Y H:i" }}</td>
+                            <td>
+                                <a href="{{ item.url }}" target="_blank" class="btn btn-sm btn-outline-primary" title="Перейти на сайт">
+                                    <i class="bi bi-box-arrow-up-right"></i>
+                                </a>
+                                <button class="btn btn-sm btn-outline-danger delete-product" title="Удалить из парсера">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Нет данных для отображения. Возможно, парсинг ещё не запускался или товары не найдены.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно подтверждения удаления -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Подтверждение удаления</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Вы уверены, что хотите удалить этот товар из парсера?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-danger" id="confirm-delete">Удалить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    const confirmDeleteBtn = document.getElementById('confirm-delete');
+    let currentProductId = null;
+    
+    // Обработка кнопок удаления
+    document.querySelectorAll('.delete-product').forEach(button => {
+        button.addEventListener('click', function() {
+            const row = this.closest('tr');
+            currentProductId = row.getAttribute('data-id');
+            deleteModal.show();
+        });
+    });
+    
+    // Подтверждение удаления
+    confirmDeleteBtn.addEventListener('click', function() {
+        if (currentProductId) {
+            // Отправляем запрос на удаление товара из парсера
+            fetch(`/parsers/{{ parser.pk }}/remove-product/${currentProductId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({})
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Удаляем строку из таблицы
+                    const row = document.querySelector(`tr[data-id="${currentProductId}"]`);
+                    if (row) {
+                        row.remove();
+                        
+                        // Проверяем, остались ли данные в таблице
+                        const tbody = document.querySelector('#results-table tbody');
+                        if (tbody.children.length === 0) {
+                            tbody.innerHTML = `
+                                <tr>
+                                    <td colspan="8" class="text-center">
+                                        <div class="alert alert-info mb-0">
+                                            <i class="bi bi-info-circle"></i> Нет данных для отображения.
+                                        </div>
+                                    </td>
+                                </tr>
+                            `;
+                        }
+                    }
+                    
+                    // Показываем уведомление об успехе
+                    showToast('Товар успешно удален из парсера', 'success');
+                } else {
+                    showToast('Ошибка при удалении товара', 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Ошибка при удалении товара', 'danger');
+            })
+            .finally(() => {
+                deleteModal.hide();
+                currentProductId = null;
+            });
+        }
+    });
+    
+    // Экспорт сводки
+    document.getElementById('export-summary').addEventListener('click', function() {
+        const productIds = [];
+        document.querySelectorAll('#results-table tbody tr[data-id]').forEach(row => {
+            productIds.push(row.getAttribute('data-id'));
+        });
+        
+        if (productIds.length > 0) {
+            exportSummary(productIds);
+        } else {
+            showToast('Нет данных для экспорта', 'warning');
+        }
+    });
+    
+    // Экспорт детальный
+    document.getElementById('export-detailed').addEventListener('click', function() {
+        const productIds = [];
+        document.querySelectorAll('#results-table tbody tr[data-id]').forEach(row => {
+            productIds.push(row.getAttribute('data-id'));
+        });
+        
+        if (productIds.length > 0) {
+            exportDetailed(productIds);
+        } else {
+            showToast('Нет данных для экспорта', 'warning');
+        }
+    });
+    
+    // Функция экспорта сводки
+    function exportSummary(productIds) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "price_parser:export_summary_excel" %}';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = 'csrfmiddlewaretoken';
+        csrfToken.value = getCookie('csrftoken');
+        form.appendChild(csrfToken);
+        
+        productIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids[]';
+            input.value = id;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+    
+    // Функция экспорта детального
+    function exportDetailed(productIds) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "price_parser:export_detailed_excel" %}';
+        
+        const csrfToken = document.createElement('input');
+        csrfToken.type = 'hidden';
+        csrfToken.name = 'csrfmiddlewaretoken';
+        csrfToken.value = getCookie('csrftoken');
+        form.appendChild(csrfToken);
+        
+        productIds.forEach(id => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'ids[]';
+            input.value = id;
+            form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    }
+    
+    // Функция для получения CSRF токена
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+    
+    // Функция для показа уведомлений
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toast-container') || createToastContainer();
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        `;
+        
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+        
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
+        });
+    }
+    
+    // Функция для создания контейнера уведомлений
+    function createToastContainer() {
+        const container = document.createElement('div');
+        container.id = 'toast-container';
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3';
+        document.body.appendChild(container);
+        return container;
+    }
+});
+</script>
+{% endblock %}
+{% endblock %}

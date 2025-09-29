@@ -26,7 +26,8 @@ class User(AbstractUser):
         verbose_name="Аватар",
         blank=True,
         null=True,
-        help_text="Загрузите свой аватар"
+        help_text="Загрузите свой аватар",
+        default="users/avatars/default.png"
     )
     country = models.CharField(max_length=50, verbose_name="Страна", blank=True, null=True)
     token = models.CharField(max_length=100, verbose_name="Токен", blank=True, null=True)

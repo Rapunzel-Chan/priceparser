@@ -14,7 +14,7 @@ from django.views.generic import TemplateView
 from django.db.models import F, Subquery, OuterRef, Avg
 from rest_framework.reverse import reverse_lazy
 
-from .models import Product, ParsedProduct, Contact
+from .models import Product, ParsedProduct, Contacts
 from datetime import timedelta
 from django.utils import timezone
 from .models import Product, Category, ParsedProduct, ParserSchedule
@@ -808,27 +808,48 @@ class ReportsView(LoginRequiredMixin, TemplateView):
 #         )
 #         return context
 
+from django.core.mail import send_mail
+from django.conf import settings
+
+
 class ContactsView(TemplateView):
     template_name = "price_parser/contacts.html"
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        contact = Contact.objects.first()
-        context["contact"] = contact
+        contacts = Contacts.objects.first()
+        context["contacts"] = contacts
         return context
 
     def post(self, request, *args, **kwargs):
-
         name = request.POST.get("name")
         message = request.POST.get("message")
         phone = request.POST.get("phone")
 
         if name and phone and message:
-            messages.success(request, "Спасибо! Ваше сообщение успешно отправлено.")
+            try:
+                # Формируем тему и тело письма
+                subject = f"Новое сообщение от {name}"
+                body = (
+                    f"Имя: {name}\n"
+                    f"Телефон: {phone}\n"
+                    f"Сообщение:\n{message}"
+                )
+
+                # Отправляем письмо
+                send_mail(
+                    subject=subject,
+                    message=body,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[settings.CONTACT_EMAIL],
+                    fail_silently=False,
+                )
+
+                messages.success(request, "Спасибо! Ваше сообщение успешно отправлено.")
+            except Exception as e:
+                messages.error(request, f"Ошибка отправки: {str(e)}")
 
         return redirect(reverse_lazy("price_parser:contacts"))
-
-# ============================
 # Парсинг одного товара через AJAX
 # ============================
 

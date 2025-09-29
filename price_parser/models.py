@@ -200,7 +200,7 @@ class ProductPriceHistory(models.Model):
     def __str__(self):
         return f"{self.product.name} - {self.date}: {self.avg_price_per_unit}"
 
-class Contact(models.Model):
+class Contacts(models.Model):
     country = models.CharField("Страна", max_length=100)
     inn = models.CharField("ИНН", max_length=20)
     address = models.CharField("Адрес", max_length=255)

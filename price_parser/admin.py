@@ -2,7 +2,7 @@ from django.contrib import admin
 
 # Register your models here.
 from django.contrib import admin
-from .models import Category, Product, ParsedProduct, ParsedProductArchive, ParserSchedule, Contact
+from .models import Category, Product, ParsedProduct, ParsedProductArchive, ParserSchedule, Contacts
 
 
 @admin.register(Category)
@@ -28,4 +28,4 @@ class ParserScheduleAdmin(admin.ModelAdmin):
     list_display = ('name', 'platform', 'interval', 'is_active', 'last_run')
     list_filter = ('platform', 'is_active')
 
-admin.site.register(Contact)
+admin.site.register(Contacts)
