@@ -1,5 +1,7 @@
 from decimal import Decimal
+
 from django.test import TestCase
+
 from price_parser.utils import price_utils
 
 
@@ -10,7 +12,7 @@ class PriceUtilsTests(TestCase):
         self.assertEqual(price_utils.normalize_price_str(" 99.99 руб "), Decimal("99.99"))
         self.assertEqual(price_utils.normalize_price_str("10"), Decimal("10"))
         self.assertEqual(price_utils.normalize_price_str("1 234,56"), Decimal("1234.56"))
-        self.assertEqual(price_utils.normalize_price_str("1\u00A0234"), Decimal("1234"))
+        self.assertEqual(price_utils.normalize_price_str("1\u00a0234"), Decimal("1234"))
 
     def test_normalize_price_str_invalid(self):
         self.assertIsNone(price_utils.normalize_price_str("abc"))

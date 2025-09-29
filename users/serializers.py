@@ -1,10 +1,5 @@
 from rest_framework import serializers
-from rest_framework.serializers import ModelSerializer
 
-from users.models import User
-
-# users/serializers.py
-from rest_framework import serializers
 from users.models import User
 
 
@@ -13,6 +8,7 @@ class UserSerializer(serializers.ModelSerializer):
     Полный сериализатор для создания пользователя через API.
     Пароль — write_only; при создании корректно вызываем set_password.
     """
+
     password = serializers.CharField(write_only=True, required=True)
 
     class Meta:
@@ -38,20 +34,3 @@ class UserPrivateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         exclude = ["password"]
-
-# class UserSerializer(ModelSerializer):
-#     class Meta:
-#         model = User
-#         fields = "__all__"
-#
-#
-# class UserPublicSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = User
-#         fields = ["id", "email", "avatar", "country"]
-#
-#
-# class UserPrivateSerializer(serializers.ModelSerializer):
-#     class Meta:
-#         model = User
-#         exclude = ["password"]

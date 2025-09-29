@@ -35,7 +35,6 @@
         </table>
     </div>
 
-    <!-- Сводный Excel -->
     <form method="post" action="{% url 'price_parser:export_summary_excel' %}" target="_blank" class="mb-2">
         {% csrf_token %}
         {% for row in table_data %}
@@ -44,7 +43,6 @@
         <button class="btn btn-success">Выгрузить сводный отчет</button>
     </form>
 
-    <!-- Детальный Excel -->
     <form method="post" action="{% url 'price_parser:export_detailed_excel' %}" target="_blank" class="mb-2">
         {% csrf_token %}
         {% for row in table_data %}

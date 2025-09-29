@@ -17,17 +17,12 @@ Including another URLconf
 
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import include, path
 
 from config import settings
 
 urlpatterns = [
-
     path("admin/", admin.site.urls),
-    # path("", include("estimates.urls", namespace="estimates")),
     path("", include("price_parser.urls", namespace="price_parser")),
-    # path("leroy/", include("leroy_db_parser.urls", namespace="leroy_db_parser")),
-
-    # path("blog/", include("blog.urls", namespace="blog")),
     path("users/", include("users.urls", namespace="users")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

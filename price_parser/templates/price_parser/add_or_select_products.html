@@ -11,7 +11,6 @@
     {% endfor %}
     {% endif %}
 
-    <!-- Поиск и фильтр -->
     <form id="search-form" class="row g-3 mb-4" method="get">
         <div class="col-md-6">
             <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Поиск по названию">
@@ -29,7 +28,6 @@
         </div>
     </form>
 
-    <!-- Форма выбора товаров -->
     <form id="product-form" method="post">
         {% csrf_token %}
         {% if products %}

@@ -1,5 +1,6 @@
-from django.core.management.base import BaseCommand
-from price_parser.models import Product, ParsedProduct
+# from django.core.management.base import BaseCommand
+
+# from price_parser.models import ParsedProduct, Product
 
 # class Command(BaseCommand):
 #     help = "Загрузить тестовые данные для товара М300 Пескобетон"

@@ -1,5 +1,3 @@
-from django.shortcuts import render
-
 # Create your views here.
 import secrets
 
@@ -17,17 +15,13 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from config.settings import EMAIL_HOST_USER
 from users.forms import UserProfileForm, UserRegisterForm
 from users.models import User
-from users.serializers import UserSerializer, UserPrivateSerializer, UserPublicSerializer
+from users.serializers import UserPrivateSerializer, UserPublicSerializer, UserSerializer
 
 
 @csrf_protect
 def logout_view(request):
     logout(request)
     return redirect("users:logout_done")
-    # if request.method == "POST":
-    #     logout(request)
-    #     return redirect("users:logout_done")
-    # return redirect("price_parser:index1")
 
 
 class UserCreateView(CreateView):
@@ -50,7 +44,6 @@ class UserCreateView(CreateView):
             recipient_list=[user.email],
         )
 
-        # return super().form_valid(form)
         return render(self.request, "users/email_verification_notice.html")
 
 
@@ -78,6 +71,7 @@ class UserProfileUpdateView(LoginRequiredMixin, UpdateView):
     def get_object(self):
         return self.request.user
 
+
 class UserCreateAPIView(CreateAPIView):
     serializer_class = UserSerializer
     queryset = User.objects.all()
@@ -102,6 +96,7 @@ class UserProfileAPIView(RetrieveUpdateAPIView):
 
     def get_queryset(self):
         return User.objects.all()
+
 
 # class UserProductsAPIView(ListAPIView):
 #     serializer_class = ProductSerializer

@@ -1,5 +1,7 @@
-import pandas as pd
 import re
+
+import pandas as pd
+
 
 class ProductParser:
     def __init__(self, file_path):
@@ -11,12 +13,12 @@ class ProductParser:
         category = None
 
         for idx, row in self.df.iterrows():
-            first_cell = str(row[0]).strip() if pd.notna(row[0]) else ''
+            first_cell = str(row[0]).strip() if pd.notna(row[0]) else ""
 
             # Если первая колонка — категория (например "01. Сухие смеси")
-            if re.match(r'^\d{2}\.\s', first_cell):
+            if re.match(r"^\d{2}\.\s", first_cell):
                 # Отрезаем номер и точку, оставляем название категории
-                category = re.sub(r'^\d{2}\.\s*', '', first_cell)
+                category = re.sub(r"^\d{2}\.\s*", "", first_cell)
                 continue
 
             # Если пятой колонки нет или там пусто — значит не товар, пропускаем
@@ -27,12 +29,13 @@ class ProductParser:
             name = str(row[4]).strip()
             unit = str(row[5]).strip() if pd.notna(row[5]) else None
 
-            self.result.append({
-                'category': category,
-                'name': name,
-                'unit': unit,
-                'price': None,  # Пока цена не берём
-            })
+            self.result.append(
+                {
+                    "category": category,
+                    "name": name,
+                    "unit": unit,
+                    "price": None,  # Пока цена не берём
+                }
+            )
 
         return pd.DataFrame(self.result)
-

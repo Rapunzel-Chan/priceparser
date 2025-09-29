@@ -81,7 +81,7 @@
                 <span class="text-muted">Выбрано товаров: <span id="selected-count">{{ selected_ids|length }}</span></span>
             </div>
             <div>
-                <button type="submit" class="btn btn-primary" {% if not selected_ids %}disabled{% endif %}>
+                <button type="submit" class="btn btn-primary">
                     <i class="bi bi-check-circle"></i> Сохранить выбор
                 </button>
             </div>
@@ -145,12 +145,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function updateSelectedCount() {
         const checked = document.querySelectorAll('input[name="products"]:checked').length;
         selectedCount.textContent = checked;
-
-        if (checked > 0) {
-            submitBtn.disabled = false;
-        } else {
-            submitBtn.disabled = true;
-        }
     }
 
     // Обработка изменения состояния чекбоксов

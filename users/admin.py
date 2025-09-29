@@ -1,21 +1,12 @@
-from django.contrib import admin
-from users.models import User
-
 # Register your models here.
 
 
-
-# @admin.register(User)
-# class UserAdmin(admin.ModelAdmin):
-#     list_display = ("id", "email", "phone", "country")
-#     search_fields = ("email", "phone", "country")
-
-# users/admin.py
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
 from django.contrib.auth.forms import UserChangeForm as DjangoUserChangeForm
-from users.models import User
+
 from users.forms import UserRegisterForm
+from users.models import User
 
 
 class UserAdminChangeForm(DjangoUserChangeForm):
@@ -25,10 +16,6 @@ class UserAdminChangeForm(DjangoUserChangeForm):
 
 
 class UserAdmin(BaseUserAdmin):
-    """
-    Админ для кастомного User.
-    Исправлено list_display — заменяем 'town' на 'country'.
-    """
     add_form = UserRegisterForm
     form = UserAdminChangeForm
     model = User
@@ -46,10 +33,13 @@ class UserAdmin(BaseUserAdmin):
     )
 
     add_fieldsets = (
-        (None, {
-            "classes": ("wide",),
-            "fields": ("email", "password1", "password2", "is_staff", "is_active"),
-        }),
+        (
+            None,
+            {
+                "classes": ("wide",),
+                "fields": ("email", "password1", "password2", "is_staff", "is_active"),
+            },
+        ),
     )
 
 

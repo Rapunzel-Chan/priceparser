@@ -1,7 +1,10 @@
-from django.core.management.base import BaseCommand
-from price_parser.models import ParsedProduct, ParsedProductArchive
-from django.utils.timezone import now
 from datetime import timedelta
+
+from django.core.management.base import BaseCommand
+from django.utils.timezone import now
+
+from price_parser.models import ParsedProduct, ParsedProductArchive
+
 
 class Command(BaseCommand):
     help = "Архивирует старые цены из ParsedProduct в ParsedProductArchive"
@@ -21,7 +24,7 @@ class Command(BaseCommand):
                 unit=old.unit,
                 url=old.url,
                 source=old.source,
-                fetched_at=old.fetched_at
+                fetched_at=old.fetched_at,
             )
         old_prices.delete()
         self.stdout.write(f"✅ Заархивировано и удалено {count} старых цен.")

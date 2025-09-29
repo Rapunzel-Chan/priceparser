@@ -6,21 +6,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Парсер цен{% endblock %}</title>
 
-    <!-- Bootstrap и Theme CSS -->
     <link href="{% static 'sneat/vendor/css/core.css' %}" rel="stylesheet">
     <link href="{% static 'sneat/vendor/css/theme-default.css' %}" rel="stylesheet">
     <link href="{% static 'sneat/css/demo.css' %}" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.9.1/font/bootstrap-icons.css">
 
-    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- jQuery -->
+
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-<!-- Навбар -->
+
 <nav class="navbar navbar-expand-lg navbar-light bg-light mb-4">
     <div class="container-fluid">
         <a class="navbar-brand" href="{% url 'price_parser:index1' %}">Парсер цен</a>
@@ -39,7 +37,7 @@
                         <form action="{% url 'users:logout' %}" method="post" class="d-flex align-items-center m-0 p-0">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-primary btn-sm ms-2" style="height: 100%;">Выход</button>
-                            <!-- Используй btn-danger вместо btn-primary для красной кнопки -->
+
                         </form>
                     </li>
                 {% else %}
@@ -52,12 +50,10 @@
     </div>
 </nav>
 
-<!-- Контент -->
 <main class="container">
     {% block content %}{% endblock %}
 </main>
 
-<!-- JS Bootstrap -->
 <script src="{% static 'sneat/vendor/js/bootstrap.bundle.min.js' %}"></script>
 {% block extra_scripts %}{% endblock %}
 

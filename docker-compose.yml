@@ -1,7 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
-    container_name: ilearn_db
+    container_name: price_catalog
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${DATABASE_NAME}
@@ -17,7 +17,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ilearn_redis
+    container_name: priceparser_redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -29,7 +29,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ilearn_backend
+    container_name: priceparser_backend
     depends_on:
       db:
         condition: service_healthy
@@ -54,7 +54,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ilearn_celery
+    container_name: priceparser_celery
     depends_on:
       db:
         condition: service_healthy
@@ -75,7 +75,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ilearn_celery_beat
+    container_name: priceparser_celery_beat
     depends_on:
       db:
         condition: service_healthy

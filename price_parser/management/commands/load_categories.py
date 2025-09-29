@@ -1,9 +1,10 @@
 from django.core.management.base import BaseCommand
+
 from price_parser.models import Category
 
 
 class Command(BaseCommand):
-    help = 'Загрузить категории в БД'
+    help = "Загрузить категории в БД"
 
     def handle(self, *args, **kwargs):
         categories = ["Расходные материалы", "Сухие смеси", "Прочее", "Инструмент", "Шортлист"]

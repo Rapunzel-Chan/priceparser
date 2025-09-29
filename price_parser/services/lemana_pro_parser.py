@@ -1,13 +1,13 @@
-# price_parser/services/lemana_pro_parser.py
 import os
 import time
 from decimal import Decimal, InvalidOperation
 from urllib.parse import quote
+
 import undetected_chromedriver as uc
 from django.utils import timezone
 
+from price_parser.models import ParsedProduct, Product
 from price_parser.utils.price_utils import filtered_unique_mean
-from price_parser.models import Product, ParsedProduct
 
 PARSED_DIR = "parsed_products"
 os.makedirs(PARSED_DIR, exist_ok=True)
@@ -35,12 +35,11 @@ class LemanaProScraper:
             pass
 
     def find_matching_products(self, product_name):
-        query = ' '.join(product_name.lower().split()[:3])
+        query = " ".join(product_name.lower().split()[:3])
         url = self.BASE_URL + quote(query)
         self.driver.get(url)
         time.sleep(3)
 
-        # Скроллим, чтобы подгрузились первые позиции
         self.driver.execute_script("window.scrollTo(0, document.body.scrollHeight / 4);")
         time.sleep(2)
 
@@ -66,12 +65,14 @@ class LemanaProScraper:
                     price = Decimal(price_text)
                     unit = price_block.find_element("css selector", "span.p1yvm8ab_plp").text.strip()
 
-                    products.append({
-                        "name": name,
-                        "price": price,
-                        "unit": unit,
-                        "url": url,
-                    })
+                    products.append(
+                        {
+                            "name": name,
+                            "price": price,
+                            "unit": unit,
+                            "url": url,
+                        }
+                    )
 
                 except InvalidOperation:
                     pass

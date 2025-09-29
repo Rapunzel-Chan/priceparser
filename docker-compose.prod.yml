@@ -1,3 +1,5 @@
+version: '3.9'
+
 volumes:
   postgres_data:
   media:
@@ -6,7 +8,7 @@ volumes:
 services:
   db:
     image: postgres:16-alpine
-    container_name: ilearn_db
+    container_name: priceparser_db
     environment:
       POSTGRES_DB: ${DATABASE_NAME}
       POSTGRES_USER: ${DATABASE_USER}
@@ -22,7 +24,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: ilearn_redis
+    container_name: priceparser_redis
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -32,7 +34,7 @@ services:
 
   static_collector:
     build: .
-    container_name: ilearn_static_collector
+    container_name: priceparser_static_collector
     command: python manage.py collectstatic --noinput
     env_file: .env
     volumes:
@@ -42,8 +44,8 @@ services:
     restart: "no"
 
   backend:
-    image: ${DOCKERHUB_USERNAME}/ilearn-app:${IMAGE_TAG}
-    container_name: ilearn_backend
+    image: ${DOCKERHUB_USERNAME}/priceparser-app:${IMAGE_TAG}
+    container_name: priceparser_backend
     depends_on:
       - db
       - redis
@@ -62,8 +64,8 @@ services:
     restart: unless-stopped
 
   celery:
-    image: ${DOCKERHUB_USERNAME}/ilearn-app:${IMAGE_TAG}
-    container_name: ilearn_celery
+    image: ${DOCKERHUB_USERNAME}/priceparser-app:${IMAGE_TAG}
+    container_name: priceparser_celery
     depends_on:
       - db
       - redis
@@ -79,8 +81,8 @@ services:
     restart: unless-stopped
 
   beat:
-    image: ${DOCKERHUB_USERNAME}/ilearn-app:${IMAGE_TAG}
-    container_name: ilearn_celery_beat
+    image: ${DOCKERHUB_USERNAME}/priceparser-app:${IMAGE_TAG}
+    container_name: priceparser_celery_beat
     depends_on:
       - db
       - redis
@@ -97,7 +99,7 @@ services:
 
   nginx:
     image: nginx:1.25-alpine
-    container_name: ilearn_nginx
+    container_name: priceparser_nginx
     depends_on:
       - backend
     ports:

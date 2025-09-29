@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.13-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -17,7 +17,6 @@ COPY pyproject.toml poetry.lock* /app/
 RUN poetry install --no-root
 
 COPY . .
-
 
 RUN mkdir -p /app/static /app/media && chmod -R 755 /app/static /app/media
 
