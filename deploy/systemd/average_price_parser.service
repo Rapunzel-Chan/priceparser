@@ -4,13 +4,12 @@ Requires=docker.service
 After=docker.service
 
 [Service]
-Type=oneshot
-WorkingDirectory=/home/admin1/Average_price_parser
-ExecStart=/usr/bin/docker compose --env-file /home/admin1/Average_price_parser/.env -f /home/admin1/Average_price_parser/docker-compose.prod.yml up -d --remove-orphans
-ExecStop=/usr/bin/docker compose -f /home/admin1/Average_price_parser/docker-compose.prod.yml down
-RemainAfterExit=yes
-TimeoutStartSec=0
-Restart=on-failure
+WorkingDirectory=/home/admin2/Average_price_parser
+ExecStart=/usr/bin/docker compose --env-file /home/admin2/Average_price_parser/.env -f /home/admin2/Average_price_parser/docker-compose.prod.yml up -d
+ExecStop=/usr/bin/docker compose -f /home/admin2/Average_price_parser/docker-compose.prod.yml down
+Restart=always
+RestartSec=5s
 
 [Install]
 WantedBy=multi-user.target
+
