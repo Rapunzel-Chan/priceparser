@@ -42,7 +42,7 @@ services:
     restart: "no"
 
   backend:
-    image: ${DOCKERHUB_USERNAME}/average_price_parser-backend:${IMAGE_TAG}
+    build: .
     container_name: average_price_parser_backend
     depends_on:
       - db
@@ -62,7 +62,7 @@ services:
     restart: unless-stopped
 
   celery:
-    image: ${DOCKERHUB_USERNAME}/average_price_parser-celery:${IMAGE_TAG}
+    build: .
     container_name: average_price_parser_celery
     depends_on:
       - db
@@ -79,7 +79,7 @@ services:
     restart: unless-stopped
 
   beat:
-    image: ${DOCKERHUB_USERNAME}/average_price_parser-beat:${IMAGE_TAG}
+    build: .
     container_name: average_price_parser_celery_beat
     depends_on:
       - db
