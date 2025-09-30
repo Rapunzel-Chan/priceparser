@@ -174,14 +174,14 @@ ssh-keygen -t ed25519 -C "deploy@priceparser" -f ~/.ssh/priceparser_deploy
 ```
 На сервере:
 ```
-ssh-copy-id -i ~/.ssh/priceparser.pub ubuntu@SERVER_IP
+ssh-copy-id -i ~/.ssh/priceparser_deploy.pub ubuntu@SERVER_IP
 ssh -i ~/.ssh/priceparser_deploy ubuntu@SERVER_IP
 ```
 
 3. Склонируйте проект:
 ```
 git clone https://github.com/<your-username>/priceparser.git
-cd average_price_parser
+cd Average_price_parser
 ```
 
 4. Подготовьте переменные окружения:
@@ -198,14 +198,14 @@ docker compose -f docker-compose.prod.yml up static_collector
 
 6. Зайдите в Repo → Settings → Secrets → Actions и добавьте:
 
-| Secret             | Значение                             |
-|--------------------|--------------------------------------|
- ENV_FILE	          | содержимое env.b64 или env_clean.b64 |
-| SERVER_IP          | 	IP сервера                          |
-| SERVER_USER        | 	ubuntu или другой пользователь      |
-| SERVER_SSH_KEY     | 	приватный ключ ilearn_deploy        |
+| Secret           | Значение                             |
+|------------------|--------------------------------------|
+ ENV_FILE	        | содержимое env.b64 или env_clean.b64 |
+| SERVER_IP        | 	IP сервера                          |
+| SERVER_USER      | 	ubuntu или другой пользователь      |
+| SERVER_SSH_KEY   | 	приватный ключ ilearn_deploy        |
 | DOCKERHUB_USERNAME | 	твой Docker Hub username            |
-| DOCKERHUB_TOKEN    |Access Token из Docker Hub |
+| DOCKERHUB_TOKEN  |Access Token из Docker Hub |
 
 7. Подготовьте Systemd Unit для Docker Compose и вставьте данные из deploy/systemd/average_price_parser.service:
 ```
