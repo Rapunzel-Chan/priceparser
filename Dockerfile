@@ -7,14 +7,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     POETRY_NO_INTERACTION=1
 
 RUN apt-get update && apt-get install -y gcc libpq-dev \
- && apt-get clean && rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
+RUN pip install --upgrade pip setuptools packaging wheel
 RUN pip install "poetry>=1.6,<2.0"
 
 WORKDIR /app
 
 COPY pyproject.toml poetry.lock* /app/
-RUN poetry install --no-root
+RUN poetry install --no-root --only main  # убедимся, что ставятся все зависимости
 
 COPY . .
 

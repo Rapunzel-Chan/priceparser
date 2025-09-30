@@ -1,10 +1,12 @@
 import logging
+from datetime import datetime
 from decimal import Decimal
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.core.mail import send_mail
+from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
@@ -52,12 +54,10 @@ class CategoryListView(ListView):
 
 
 class ProductListView(LoginRequiredMixin, ListView):
-    """Отображает список продуктов (каталог)."""
-
+    """Отображает список всех продуктов(каталог)."""
     model = Product
     template_name = "price_parser/products_list.html"
     context_object_name = "products"
-    ordering = ["-avg_price_lemanapro"]
 
     def get_queryset(self):
         qs = (
@@ -65,23 +65,45 @@ class ProductListView(LoginRequiredMixin, ListView):
             if self.request.user.is_superuser
             else Product.objects.filter(owner=self.request.user)
         )
-        return qs.order_by("-avg_price_lemanapro")
+        return qs.filter(Q(parsed_products__isnull=False) | Q(price_history__isnull=False)).distinct()
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         products_info = []
 
         for prod in context["products"]:
-            last_parsed = prod.parsed_products.order_by("-fetched_at").first()
-            if not last_parsed:
+            current_price = None
+            source = None
+            last_fetched = None
+            from_history = False
+
+            if prod.avg_price_lemanapro is not None:
+                current_price = prod.avg_price_lemanapro
+                source = "parsed"
+
+                last_parsed = prod.parsed_products.order_by("-fetched_at").first()
+                if last_parsed:
+                    last_fetched = last_parsed.fetched_at
+            else:
+                last_history = prod.price_history.order_by("-date").first()
+                if last_history:
+                    current_price = last_history.avg_price_per_unit
+                    source = "history"
+                    from_history = True
+                    last_fetched = datetime.combine(last_history.date, datetime.min.time())
+
+            if current_price is None:
                 continue
 
-            avg_price_per_unit = prod.avg_price_lemanapro or Decimal("0")
+            last_parsed = prod.parsed_products.order_by("-fetched_at").first()
+            if last_parsed:
+                pack_size = last_parsed.pack_size if last_parsed.pack_size else Decimal("1")
+                unit = last_parsed.unit if last_parsed.unit else "шт"
+            else:
+                pack_size = prod.pack_size if prod.pack_size else Decimal("1")
+                unit = prod.unit if prod.unit else "шт"
 
-            pack_size = last_parsed.pack_size or Decimal("1")
-            unit = last_parsed.unit or "шт"
-
-            avg_price_pack = avg_price_per_unit * pack_size
+            avg_price_pack = current_price * pack_size
 
             products_info.append(
                 {
@@ -89,12 +111,15 @@ class ProductListView(LoginRequiredMixin, ListView):
                     "pack_size": pack_size,
                     "unit": unit,
                     "avg_price_pack": avg_price_pack,
-                    "price_per_unit": avg_price_per_unit,
-                    "last_fetched": last_parsed.fetched_at,
+                    "price_per_unit": current_price,
+                    "last_fetched": last_fetched,
+                    "source": source,
+                    "from_history": from_history,
                 }
             )
 
-        context["products_info"] = products_info
+        context["products_info"] = sorted(products_info, key=lambda x: x["avg_price_pack"], reverse=True)
+        return context
 
 
 class ProductDetailView(DetailView):

@@ -3,34 +3,62 @@
 
 {% block content %}
 <div class="card">
-  <div class="card-header">
-    <h5>Каталог товаров</h5>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h5 class="mb-0">Каталог товаров</h5>
+    <span class="badge bg-secondary">{{ products_info|length }} товаров</span>
   </div>
   <div class="card-body">
-    <table class="table table-striped align-middle">
-      <thead>
-        <tr>
-          <th>Название</th>
-          <th>Ед. изм.</th>
-          <th>Фасовка</th>
-          <th>Средняя цена</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in products_info %}
-        <tr>
-          <td><a href="{% url 'price_parser:product_detail' item.product.id %}">{{ item.product.name }}</a></td>
-          <td>{{ item.unit }}</td>
-          <td>{{ item.pack_size }}</td>
-          <td>{{ item.avg_price_pack|floatformat:2 }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-          <td colspan="4" class="text-center">Нет товаров</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Название</th>
+            <th>Ед. изм.</th>
+            <th>Фасовка</th>
+            <th>Цена за упаковку</th>
+            <th>Источник</th>
+            <th>Последнее обновление</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in products_info %}
+          <tr>
+            <td>
+              <a href="{% url 'price_parser:product_detail' item.product.id %}">
+                {{ item.product.name }}
+              </a>
+            </td>
+            <td>{{ item.unit }}</td>
+            <td>{{ item.pack_size }}</td>
+            <td>
+              {{ item.avg_price_pack|floatformat:2 }} ₽
+              {% if item.from_history %}
+                <small class="text-muted">(из истории)</small>
+              {% endif %}
+            </td>
+            <td>
+              {% if item.source == "parsed" %}
+                <span class="badge bg-success">Парсер</span>
+              {% else %}
+                <span class="badge bg-info">История</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if item.last_fetched %}
+                {{ item.last_fetched|date:"d.m.Y H:i" }}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="6" class="text-center">Нет товаров с ценами</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 </div>
 {% endblock %}
