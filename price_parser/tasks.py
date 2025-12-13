@@ -144,7 +144,7 @@ def notify_user_parsing_done(user, products, parser_id=None):
     link_text = ""
 
     if parser_id:
-        results_url = reverse("price_parser:parser_results", kwargs={"pk": parser_id})
+        results_url = reverse("price_parser:reports", kwargs={"pk": parser_id})
         results_link = f"{settings.SITE_URL.rstrip('/')}{results_url}"
         link_text = "Посмотреть результаты парсера"
     else:
