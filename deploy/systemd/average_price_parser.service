@@ -1,0 +1,16 @@
+[Unit]
+Description=PriceParser app (Docker Compose)
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+WorkingDirectory=/home/admin2/Average_price_parser
+ExecStart=/usr/bin/docker compose --env-file /home/admin2/Average_price_parser/.env -f /home/admin2/Average_price_parser/docker-compose.prod.yml up
+ExecStop=/usr/bin/docker compose -f /home/admin2/Average_price_parser/docker-compose.prod.yml down
+Restart=always
+TimeoutStartSec=0
+
+[Install]
+WantedBy=multi-user.target
+

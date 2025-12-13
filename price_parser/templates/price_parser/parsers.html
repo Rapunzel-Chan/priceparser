@@ -1,0 +1,76 @@
+{% extends "price_parser/base.html" %}
+
+{% block title %}Мои парсеры{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Мои парсеры</h1>
+        <a href="{% url 'price_parser:add_parser' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Создать новый парсер
+        </a>
+    </div>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
+    {% endif %}
+
+    {% if parsers %}
+    <div class="row">
+        {% for parser in parsers %}
+        <div class="col-md-4 mb-4">
+            <div class="card h-100 {% if not parser.is_active %}bg-light{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">{{ parser.name }}</h5>
+                    {% if parser.is_active %}
+                    <span class="badge bg-success">Активен</span>
+                    {% else %}
+                    <span class="badge bg-secondary">Неактивен</span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <p><strong>Площадка:</strong> {{ parser.get_platform_display }}</p>
+                    <p><strong>Товаров:</strong> {{ parser.products.count }}</p>
+                    <p><strong>Последний запуск:</strong>
+                        {% if parser.last_run %}
+                        {{ parser.last_run|date:"d.m.Y H:i" }}
+                        {% else %}
+                        <span class="text-muted">Ещё не запускался</span>
+                        {% endif %}
+                    </p>
+                    {% if parser.interval %}
+                    <p><strong>Интервал:</strong> {{ parser.interval }} мин.</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="btn-group w-100" role="group">
+
+                        <a href="{% url 'price_parser:edit_parser' parser.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-pencil"></i> Изменить
+                        </a>
+                        <a href="{% url 'price_parser:run_parser_now' parser.pk %}" class="btn btn-outline-success">
+                            <i class="bi bi-play-circle"></i> Запустить
+                        </a>
+                        <a href="{% url 'price_parser:parser_select_products' parser.pk %}"
+                           class="btn btn-outline-primary">
+                            <i class="bi bi-list-check"></i> Товары
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> У вас ещё нет созданных парсеров.
+        <a href="{% url 'price_parser:add_parser' %}" class="btn btn-info ms-2">Создать первый парсер</a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

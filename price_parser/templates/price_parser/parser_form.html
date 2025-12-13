@@ -1,0 +1,55 @@
+{% extends "price_parser/base.html" %}
+
+{% block title %}{% if title %}{{ title }}{% else %}Создать новый парсер{% endif %}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1>{% if title %}{{ title }}{% else %}Создать новый парсер{% endif %}</h1>
+
+    {# --- Форма сохранения --- #}
+    <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+
+        {% if selected_products %}
+        <div class="mt-3">
+            <h5>Выбранные товары для парсинга:</h5>
+            <div class="list-group">
+                {% for product in selected_products %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    {{ product.name }}
+                    {% if product.avg_price_lemanapro %}
+                    <span class="badge bg-primary rounded-pill">{{ product.avg_price_lemanapro|floatformat:2 }} ₽</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            <div class="mt-2">
+                <a href="{% url 'price_parser:parser_select_products' parser.pk %}" class="btn btn-outline-primary">
+                    <i class="bi bi-pencil-square"></i> Изменить список товаров
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="mt-4 d-flex gap-2">
+            <button type="submit" class="btn btn-success">
+                <i class="bi bi-check-circle"></i> Сохранить
+            </button>
+            <a href="{% url 'price_parser:parsers' %}" class="btn btn-secondary">
+                <i class="bi bi-x-circle"></i> Отмена
+            </a>
+        </div>
+    </form>
+
+
+    {% if form.instance.pk %}
+    <form method="post" action="{% url 'price_parser:delete_parser' form.instance.pk %}" class="mt-2">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger" onclick="return confirm('Точно удалить этот парсер?');">
+            <i class="bi bi-trash"></i> Удалить
+        </button>
+    </form>
+    {% endif %}
+</div>
+{% endblock %}

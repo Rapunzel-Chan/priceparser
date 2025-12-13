@@ -1,0 +1,65 @@
+{% extends "price_parser/base.html" %}
+
+{% block title %}Отчёты{% endblock %}
+
+{% block content %}
+<div class="container-xxl">
+  <h4 class="fw-bold py-3 mb-4">Отчёты: динамика цен</h4>
+
+  {% if parser_id %}
+    <div class="alert alert-info">
+      Отфильтровано по парсеру: <strong>{{ parser_id }}</strong>
+      <a href="{% url 'price_parser:reports' %}" class="btn btn-sm btn-outline-secondary">Сбросить фильтр</a>
+    </div>
+  {% endif %}
+
+  <div class="row g-3">
+    {% for item in report_items %}
+      <div class="col-md-4">
+        <div class="card mb-3">
+          <div class="card-body">
+            <h5 class="card-title">{{ item.product.name }}</h5>
+            <p class="card-text">
+              Текущая цена:
+              {% if item.new_avg is not None %}
+                <strong>{{ item.new_avg }} ₽</strong>
+                {% if item.from_history %}
+                  <small class="text-muted">(из истории)</small>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">Нет данных</span>
+              {% endif %}
+            </p>
+            {% if item.prev_avg is not None %}
+              <p class="card-text">
+                Предыдущая цена: <strong>{{ item.prev_avg }} ₽</strong>
+              </p>
+            {% endif %}
+            {% if item.change_pct is not None %}
+              <p class="card-text">
+                Изменение:
+                <span class="{% if item.change_pct > 0 %}text-danger{% elif item.change_pct < 0 %}text-success{% else %}text-warning{% endif %}">
+                  {{ item.change_pct }}%
+                </span>
+              </p>
+            {% endif %}
+            <p class="card-text">
+              Популярность: {{ item.popularity }}
+            </p>
+            <p class="card-text">
+              Источник: {{ item.source|default:"—" }}
+            </p>
+            <a href="{% url 'price_parser:product_detail' item.product.id %}" class="btn btn-sm btn-outline-primary">
+              Подробнее
+            </a>
+          </div>
+        </div>
+      </div>
+    {% empty %}
+      <div class="col-12">
+        <div class="alert alert-info">Нет данных для отчётов</div>
+      </div>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

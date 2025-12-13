@@ -1,0 +1,108 @@
+{% extends 'price_parser/base.html' %}
+{% block title %}Выбор товаров для парсинга{% endblock %}
+
+{% block content %}
+<div class="container-xxl flex-grow-1 container-p-y">
+    <h4 class="fw-bold py-3 mb-4">Выбор товаров</h4>
+
+    {% if messages %}
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+
+    <form id="search-form" class="row g-3 mb-4" method="get">
+        <div class="col-md-6">
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Поиск по названию">
+        </div>
+        <div class="col-md-4">
+            <select name="category" class="form-select">
+                <option value="">Все категории</option>
+                {% for cat in categories %}
+                <option value="{{ cat.id }}" {% if selected_category == cat.id %}selected{% endif %}>{{ cat.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <button class="btn btn-primary w-100">Поиск</button>
+        </div>
+    </form>
+
+    <form id="product-form" method="post">
+        {% csrf_token %}
+        {% if products %}
+        <div class="row g-3">
+            {% for product in products %}
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-body">
+                        <input type="checkbox" name="selected_products" value="{{ product.id }}">
+                        <a href="{% url 'price_parser:product_detail' product.id %}">{{ product.name }}</a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="alert alert-warning mt-4">
+            Товары не найдены. Попробуйте ручной поиск ниже.
+        </div>
+        {% endif %}
+
+        <div class="mt-4">
+            <label>Добавить товары вручную (каждый с новой строки):</label>
+            <textarea name="manual_products" rows="3" class="form-control"
+                      placeholder="Например: перчатки&#10;кисточка&#10;краска"></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-success mt-3" id="start-parser">Запустить парсинг</button>
+    </form>
+
+    <div id="status-message" style="margin-top:20px; color:green;"></div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+const csrftoken = getCookie('csrftoken');
+
+document.getElementById('product-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    let formData = new FormData(this);
+
+    fetch("{% url 'price_parser:selected_action' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {'X-CSRFToken': csrftoken}
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'started') {
+            document.getElementById('status-message').innerText = 'Парсер запущен, ожидайте...';
+            let interval = setInterval(() => {
+                fetch("{% url 'price_parser:parsing_status' %}")
+                .then(res => res.json())
+                .then(status => {
+                    if (status.done) {
+                        clearInterval(interval);
+                        window.location.href = "{% url 'price_parser:show_selected_products' %}";
+                    }
+                });
+            }, 10000);  // проверяем каждые 10 секунд
+        }
+    });
+});
+</script>
+{% endblock %}

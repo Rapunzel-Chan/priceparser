@@ -1,0 +1,13 @@
+{% extends "price_parser/base.html" %}
+{% block title %}Создать парсер{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <h3>Создать новый парсер</h3>
+  <form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit" class="btn btn-primary">Сохранить и выбрать товары</button>
+  </form>
+</div>
+{% endblock %}
